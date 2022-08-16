@@ -18,6 +18,8 @@ sqlitedict = "^2.0.0"
 moviepy = "^1.0.3"
 python-dotenv = "^0.20.0"
 pydantic = "^1.9.2"
+chromedriver-autoinstaller = "^0.4.0"
+selenium = "^4.4.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"

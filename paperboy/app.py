@@ -13,7 +13,15 @@ from textwrap import TextWrapper
 from datetime import datetime
 import os
 from pydantic import BaseSettings
-from typing import List
+from selenium import webdriver
+import chromedriver_autoinstaller
+from selenium.webdriver.chrome.options import Options
+
+
+chromedriver_autoinstaller.install()
+chrome_options = Options()
+chrome_options.add_argument("--headless")
+chrome_options.add_argument("--window-size=1920x1080")
 
 class Settings(BaseSettings):
     token = ""
@@ -75,7 +83,7 @@ async def add(ctx, url):
     """Add a domain to the whitelist"""
     url_parsed = urlparse(url)
     if str(url_parsed.netloc) not in db:
-        db[url_parsed.netloc] = {"whitelist": True}
+        db[url_parsed.netloc] = {"whitelist": True, 'paywall': False}
     else:
         url_profile = db[url_parsed.netloc]
         url_profile["whitelist"] = True
@@ -93,6 +101,17 @@ async def rm(ctx, url):
     del db[url_parsed.netloc]
     await ctx.send(f"**{url_parsed.netloc}** removed from database.")
 
+@bot.command(name="paywall", description="Add or remove paywall.")
+async def paywall(ctx, url):
+    """Turn onn and off paywall diversion."""
+    url_parsed = urlparse(url)
+    if str(url_parsed.netloc) not in db:
+        await ctx.send(f"**{url_parsed.netloc}** not found in database.")
+        return
+    url_profile = db[url_parsed.netloc]
+    url_profile["paywall"] = not url_profile["paywall"]
+    db[url_parsed.netloc] = url_profile
+    await ctx.send(f"**{url_parsed.netloc}**: {db[url_parsed.netloc]}")
 
 @bot.command(name="ping", description="Check response.")
 async def ping(ctx):
@@ -128,6 +147,11 @@ def color_clip(audio, fps=14, color=(0,0,0)):
     videoclip.write_videofile(output, fps=fps)
     return output
 
+def divert_paywall(url):
+    url_parsed = urlparse(url)
+    url_profile = db[url_parsed.netloc]
+    return url_profile["paywall"]
+
 async def process_article(url, message):
     await message.add_reaction("📰")
     await bot.change_presence(
@@ -137,9 +161,21 @@ async def process_article(url, message):
         ),
     )
     async with message.channel.typing():
-        article = Article(url, config=config)
         print("downlowding article")
-        article.download()
+        # Divert paywall
+        article = None
+        if divert_paywall(url):
+            driver = webdriver.Chrome(chrome_options=chrome_options)
+            driver.implicitly_wait(10)
+            driver.get(f"https://12ft.io/{url}")
+            driver.switch_to.frame(driver.find_element("xpath", "//iframe[1]"))
+            source = driver.page_source
+            driver.quit()
+            article = Article('', config=config)
+            article.set_html(source)
+        else:
+            article = Article(url, config=config)
+            article.download()
         print("parsing article")
         article.parse()
         print("running nlp on article")
@@ -184,7 +220,7 @@ async def on_message(message):
     for url in urls:
         url_parsed = urlparse(url)
         if url_parsed.netloc not in db:
-
+            db[url_parsed.netloc] = {"whitelist": False, 'paywall': False}
             def check(reaction, user):
                 return (
                     reply.id == reaction.message.id
@@ -205,9 +241,10 @@ async def on_message(message):
                 await reply.delete()
             else:
                 await reply.delete()
+                db[url_parsed.netloc] = {"whitelist": True, 'paywall': False}
                 await process_article(url, message)
+            return
 
-            db[url_parsed.netloc] = {"whitelist": False}
 
         url_profile = db[url_parsed.netloc]
         if url_profile["whitelist"]:

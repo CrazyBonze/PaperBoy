@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "paperboy"
+version = "0.1.0"
+description = ""
+authors = ["Michael Taylor <90michaeltaylor@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+newspaper3k = "^0.2.8"
+gTTS = "^2.2.4"
+"discord.py" = "^1.7.3"
+python-slugify = "^6.1.2"
+urlextract = "^1.6.0"
+sqlitedict = "^2.0.0"
+moviepy = "^1.0.3"
+python-dotenv = "^0.20.0"
+pydantic = "^1.9.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+black = "^22.6.0"
+taskipy = "^1.10.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -16,12 +16,32 @@ from pydantic import BaseSettings
 from selenium import webdriver
 import chromedriver_autoinstaller
 from selenium.webdriver.chrome.options import Options
+import google.cloud.texttospeech as tts
+
+
+def text_to_speech(filename: str, text: str):
+    text_input = tts.SynthesisInput(text=text)
+    voice_params = tts.VoiceSelectionParams(
+        language_code="en-US", name="en-US-Wavenet-I"
+    )
+    audio_config = tts.AudioConfig(audio_encoding=tts.AudioEncoding.LINEAR16)
+    print(audio_config)
+    client = tts.TextToSpeechClient()
+    response = client.synthesize_speech(
+        input=text_input, voice=voice_params, audio_config=audio_config
+    )
+
+    #filename = f"{language_code}.wav"
+    with open(filename, "wb") as out:
+        out.write(response.audio_content)
+        print(f'Generated speech saved to "{filename}"')
 
 
 chromedriver_autoinstaller.install()
 chrome_options = Options()
 chrome_options.add_argument("--headless")
 chrome_options.add_argument("--window-size=1920x1080")
+
 
 class Settings(BaseSettings):
     token = ""
@@ -176,24 +196,28 @@ async def process_article(url, message):
         else:
             article = Article(url, config=config)
             article.download()
+
         print("parsing article")
         article.parse()
         print("running nlp on article")
         article.nlp()
         print("running text to speech")
-        text = "\n".join(wrapper.wrap(article.text))
-        tts = gTTS(text=text, lang="en", slow=False)
         audio_file_name = f"{slugify(article.title)}.mp3"
         text_file_name = f"{slugify(article.title)}.txt"
-        tts.save(f"./articles/{audio_file_name}")
+        text = "\n".join(wrapper.wrap(article.text))
+        #tts = gTTS(text=text, lang="en", slow=False)
+        #tts.save(f"./articles/{audio_file_name}")
+        text_to_speech(f"./articles/{audio_file_name}", text)
         print("running video conversion")
         video_file_name = color_clip(f"./articles/{audio_file_name}")
         with open(f"./articles/{text_file_name}", 'w') as txt:
             txt.write(text)
         meta = f"By: __{','.join(article.authors or [])}__ {article.publish_date or datetime.min:%Y-%m-%d}\n"
         print("uploading article to discord")
+        # check for aiohttp.client_exceptions.ClientOSError
         await message.channel.send(
             f"**SUMMARY: {article.title}**\n{meta}{article.summary[:2000]}",
+            #f"**SUMMARY: {title}**\n{meta}{content[:2000]}",
             file=discord.File(video_file_name),
             reference=message,
         )

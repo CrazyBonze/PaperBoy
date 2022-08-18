@@ -17,6 +17,7 @@ from selenium import webdriver
 import chromedriver_autoinstaller
 from selenium.webdriver.chrome.options import Options
 import google.cloud.texttospeech as tts
+from datetime import timedelta
 
 
 def text_to_speech(filename: str, text: str):
@@ -133,6 +134,18 @@ async def paywall(ctx, url):
     db[url_parsed.netloc] = url_profile
     await ctx.send(f"**{url_parsed.netloc}**: {db[url_parsed.netloc]}")
 
+@bot.command(name="whitelist", description="Add or remove whitelist.")
+async def whitelist(ctx, url):
+    """Turn onn and off paywall diversion."""
+    url_parsed = urlparse(url)
+    if str(url_parsed.netloc) not in db:
+        await ctx.send(f"**{url_parsed.netloc}** not found in database.")
+        return
+    url_profile = db[url_parsed.netloc]
+    url_profile["whitelist"] = not url_profile["whitelist"]
+    db[url_parsed.netloc] = url_profile
+    await ctx.send(f"**{url_parsed.netloc}**: {db[url_parsed.netloc]}")
+
 @bot.command(name="ping", description="Check response.")
 async def ping(ctx):
     """Measure the ping between discord and the bot"""
@@ -158,14 +171,14 @@ async def on_ready():
     )
 
 def color_clip(audio, fps=14, color=(0,0,0)):
-    output = f"{audio.replace('.mp3', '.webm')}"
+    filename = f"{audio.replace('.mp3', '.webm')}"
     size = (200, 100)
     audioclip = AudioFileClip(audio)
-    clip = ImageClip("cat_paper.jpg", duration=audioclip.duration)
+    clip = ImageClip("cat_paper.jpg", duration=audioclip.duration + 0.25)
     #clip = ColorClip(size, color, duration=audioclip.duration)
     videoclip = clip.set_audio(audioclip)
-    videoclip.write_videofile(output, fps=fps)
-    return output
+    videoclip.write_videofile(filename, fps=fps)
+    return filename, timedelta(seconds=videoclip.duration)
 
 def divert_paywall(url):
     url_parsed = urlparse(url)
@@ -209,14 +222,14 @@ async def process_article(url, message):
         #tts.save(f"./articles/{audio_file_name}")
         text_to_speech(f"./articles/{audio_file_name}", text)
         print("running video conversion")
-        video_file_name = color_clip(f"./articles/{audio_file_name}")
+        video_file_name, video_length = color_clip(f"./articles/{audio_file_name}")
         with open(f"./articles/{text_file_name}", 'w') as txt:
             txt.write(text)
         meta = f"By: __{','.join(article.authors or [])}__ {article.publish_date or datetime.min:%Y-%m-%d}\n"
         print("uploading article to discord")
         # check for aiohttp.client_exceptions.ClientOSError
         await message.channel.send(
-            f"**SUMMARY: {article.title}**\n{meta}{article.summary[:2000]}",
+            f"**SUMMARY: {article.title}**\n{meta}{article.summary[:2000]}\n\nlength {str(video_length).split('.')[0]}",
             #f"**SUMMARY: {title}**\n{meta}{content[:2000]}",
             file=discord.File(video_file_name),
             reference=message,
@@ -273,6 +286,10 @@ async def on_message(message):
         url_profile = db[url_parsed.netloc]
         if url_profile["whitelist"]:
             await process_article(url, message)
+            return
+        if not url_profile["whitelist"]:
+            await message.add_reaction("🚫")
+            return
 
 
 bot.run(settings.token)  # , log_handler=handler)

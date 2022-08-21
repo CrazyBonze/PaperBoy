@@ -2,3 +2,4 @@
 /articles/**
 .env
 key.json
+__pycache__/

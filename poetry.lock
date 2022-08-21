@@ -56,19 +56,15 @@ docs = ["sphinx-notfound-page", "zope.interface", "sphinx", "furo"]
 dev = ["cloudpickle", "pre-commit", "sphinx-notfound-page", "sphinx", "furo", "zope.interface", "pytest-mypy-plugins", "mypy (>=0.900,!=0.940)", "pytest (>=4.3.0)", "pympler", "hypothesis", "coverage[toml] (>=5.0.2)"]
 
 [[package]]
-name = "beautifulsoup4"
-version = "4.11.1"
-description = "Screen-scraping library"
+name = "backports.zoneinfo"
+version = "0.2.1"
+description = "Backport of the standard library zoneinfo module"
 category = "main"
 optional = false
-python-versions = ">=3.6.0"
-
-[package.dependencies]
-soupsieve = ">1.2"
+python-versions = ">=3.6"
 
 [package.extras]
-html5lib = ["html5lib"]
-lxml = ["lxml"]
+tzdata = ["tzdata"]
 
 [[package]]
 name = "black"
@@ -91,6 +87,19 @@ colorama = ["colorama (>=0.4.3)"]
 d = ["aiohttp (>=3.7.4)"]
 jupyter = ["ipython (>=7.8.0)", "tokenize-rt (>=3.2.0)"]
 uvloop = ["uvloop (>=0.15.2)"]
+
+[[package]]
+name = "breadability"
+version = "0.1.20"
+description = "Port of Readability HTML parser in Python"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+chardet = "*"
+docopt = ">=0.6.1,<0.7"
+lxml = ">=2.0"
 
 [[package]]
 name = "cachetools"
@@ -166,6 +175,19 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
+name = "courlan"
+version = "0.8.3"
+description = "Clean, filter and sample URLs to optimize data collection – includes spam, content type and language filters."
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+langcodes = ">=3.3.0"
+tld = ">=0.12.6"
+urllib3 = ">=1.26,<2"
+
+[[package]]
 name = "cryptography"
 version = "37.0.4"
 description = "cryptography is a package which provides cryptographic recipes and primitives to Python developers."
@@ -185,12 +207,23 @@ ssh = ["bcrypt (>=3.1.5)"]
 test = ["pytest (>=6.2.0)", "pytest-benchmark", "pytest-cov", "pytest-subtests", "pytest-xdist", "pretend", "iso8601", "pytz", "hypothesis (>=1.11.4,!=3.79.2)"]
 
 [[package]]
-name = "cssselect"
-version = "1.1.0"
-description = "cssselect parses CSS3 Selectors and translates them to XPath 1.0"
+name = "dateparser"
+version = "1.1.1"
+description = "Date parsing library designed to parse dates from HTML pages"
 category = "main"
 optional = false
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+python-versions = ">=3.5"
+
+[package.dependencies]
+python-dateutil = "*"
+pytz = "*"
+regex = "<2019.02.19 || >2019.02.19,<2021.8.27 || >2021.8.27,<2022.3.15"
+tzlocal = "*"
+
+[package.extras]
+langdetect = ["langdetect"]
+fasttext = ["fasttext"]
+calendars = ["convertdate", "hijri-converter", "convertdate"]
 
 [[package]]
 name = "decorator"
@@ -216,28 +249,12 @@ docs = ["sphinx (==3.0.3)", "sphinxcontrib-trio (==1.1.2)", "sphinxcontrib-websu
 voice = ["PyNaCl (>=1.3.0,<1.5)"]
 
 [[package]]
-name = "feedfinder2"
-version = "0.0.4"
-description = "Find the feed URLs for a website."
+name = "docopt"
+version = "0.6.2"
+description = "Pythonic argument parser, that will make you smile"
 category = "main"
 optional = false
 python-versions = "*"
-
-[package.dependencies]
-beautifulsoup4 = "*"
-requests = "*"
-six = "*"
-
-[[package]]
-name = "feedparser"
-version = "6.0.10"
-description = "Universal feed parser, handles RSS 0.9x, RSS 1.0, RSS 2.0, CDF, Atom 0.3, and Atom 1.0 feeds"
-category = "main"
-optional = false
-python-versions = ">=3.6"
-
-[package.dependencies]
-sgmllib3k = "*"
 
 [[package]]
 name = "filelock"
@@ -368,6 +385,25 @@ optional = false
 python-versions = ">=3.6"
 
 [[package]]
+name = "htmldate"
+version = "1.3.0"
+description = "Fast and robust extraction of original and updated publication dates from URLs and web pages."
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+charset-normalizer = ">=2.1.0"
+dateparser = ">=1.1.1"
+lxml = ">=4.6.4"
+python-dateutil = ">=2.8.2"
+urllib3 = ">=1.26,<2"
+
+[package.extras]
+speed = ["urllib3", "cchardet (>=2.1.7)"]
+all = ["urllib3", "cchardet (>=2.1.7)"]
+
+[[package]]
 name = "idna"
 version = "2.10"
 description = "Internationalized Domain Names in Applications (IDNA)"
@@ -413,20 +449,34 @@ optional = false
 python-versions = ">=3.5"
 
 [[package]]
-name = "jieba3k"
-version = "0.35.1"
-description = "Chinese Words Segementation Utilities"
-category = "main"
-optional = false
-python-versions = "*"
-
-[[package]]
 name = "joblib"
 version = "1.1.0"
 description = "Lightweight pipelining with Python functions"
 category = "main"
 optional = false
 python-versions = ">=3.6"
+
+[[package]]
+name = "justext"
+version = "3.0.0"
+description = "Heuristic based boilerplate removal tool"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+lxml = ">=4.4.2"
+
+[[package]]
+name = "langcodes"
+version = "3.3.0"
+description = "Tools for labeling human languages with IETF language tags"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.extras]
+data = ["language-data (>=1.1,<2.0)"]
 
 [[package]]
 name = "lxml"
@@ -498,29 +548,6 @@ description = "Experimental type system extensions for programs checked with the
 category = "dev"
 optional = false
 python-versions = "*"
-
-[[package]]
-name = "newspaper3k"
-version = "0.2.8"
-description = "Simplified python article discovery & extraction."
-category = "main"
-optional = false
-python-versions = "*"
-
-[package.dependencies]
-beautifulsoup4 = ">=4.4.1"
-cssselect = ">=0.9.2"
-feedfinder2 = ">=0.0.4"
-feedparser = ">=5.2.1"
-jieba3k = ">=0.35.1"
-lxml = ">=3.6.0"
-nltk = ">=3.2.1"
-Pillow = ">=3.3.0"
-python-dateutil = ">=2.5.3"
-PyYAML = ">=3.11"
-requests = ">=2.10.0"
-tinysegmenter = "0.3"
-tldextract = ">=2.0.1"
 
 [[package]]
 name = "nltk"
@@ -689,6 +716,14 @@ python-versions = "*"
 pyasn1 = ">=0.4.6,<0.5.0"
 
 [[package]]
+name = "pycountry"
+version = "22.3.5"
+description = "ISO country, subdivision, language, currency and script definitions and their translations"
+category = "main"
+optional = false
+python-versions = ">=3.6, <4"
+
+[[package]]
 name = "pycparser"
 version = "2.21"
 description = "C parser in Python"
@@ -710,6 +745,14 @@ typing-extensions = ">=3.7.4.3"
 [package.extras]
 email = ["email-validator (>=1.0.3)"]
 dotenv = ["python-dotenv (>=0.10.4)"]
+
+[[package]]
+name = "pydub"
+version = "0.25.1"
+description = "Manipulate audio with an simple and easy high level interface"
+category = "main"
+optional = false
+python-versions = "*"
 
 [[package]]
 name = "pyopenssl"
@@ -804,16 +847,28 @@ text-unidecode = ">=1.3"
 unidecode = ["Unidecode (>=1.1.1)"]
 
 [[package]]
-name = "pyyaml"
-version = "3.11"
-description = "YAML parser and emitter for Python"
+name = "pytz"
+version = "2022.2.1"
+description = "World timezone definitions, modern and historical"
 category = "main"
 optional = false
 python-versions = "*"
 
 [[package]]
+name = "pytz-deprecation-shim"
+version = "0.1.0.post0"
+description = "Shims to make deprecation of pytz easier"
+category = "main"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,>=2.7"
+
+[package.dependencies]
+"backports.zoneinfo" = {version = "*", markers = "python_version >= \"3.6\" and python_version < \"3.9\""}
+tzdata = {version = "*", markers = "python_version >= \"3.6\""}
+
+[[package]]
 name = "regex"
-version = "2022.7.25"
+version = "2022.3.2"
 description = "Alternative regular expression module, to replace re."
 category = "main"
 optional = false
@@ -836,18 +891,6 @@ urllib3 = ">=1.21.1,<1.27"
 [package.extras]
 use_chardet_on_py3 = ["chardet (>=3.0.2,<6)"]
 socks = ["PySocks (>=1.5.6,!=1.5.7)"]
-
-[[package]]
-name = "requests-file"
-version = "1.5.1"
-description = "File transport adapter for Requests"
-category = "main"
-optional = false
-python-versions = "*"
-
-[package.dependencies]
-requests = ">=1.0.0"
-six = "*"
 
 [[package]]
 name = "rsa"
@@ -874,14 +917,6 @@ trio-websocket = ">=0.9,<1.0"
 urllib3 = {version = ">=1.26,<2.0", extras = ["secure", "socks"]}
 
 [[package]]
-name = "sgmllib3k"
-version = "1.0.0"
-description = "Py3k port of sgmllib."
-category = "main"
-optional = false
-python-versions = "*"
-
-[[package]]
 name = "six"
 version = "1.7.3"
 description = "Python 2 and 3 compatibility utilities"
@@ -906,20 +941,36 @@ optional = false
 python-versions = "*"
 
 [[package]]
-name = "soupsieve"
-version = "2.3.2.post1"
-description = "A modern CSS selector implementation for Beautiful Soup."
-category = "main"
-optional = false
-python-versions = ">=3.6"
-
-[[package]]
 name = "sqlitedict"
 version = "2.0.0"
 description = "Persistent dict in Python, backed up by sqlite3 and pickle, multithread-safe."
 category = "main"
 optional = false
 python-versions = "*"
+
+[[package]]
+name = "sumy"
+version = "0.10.0"
+description = "Module for automatic summarization of text documents and HTML pages."
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+breadability = ">=0.1.20"
+docopt = ">=0.6.1,<0.7"
+nltk = ">=3.0.2"
+pycountry = ">=18.2.23"
+requests = ">=2.7.0"
+
+[package.extras]
+lexrank = ["numpy"]
+lsa = ["numpy"]
+korean = ["konlpy"]
+japanese = ["tinysegmenter"]
+hebrew = ["hebrew-tokenizer"]
+greek = ["greek-stemmer-pos"]
+chinese = ["jieba"]
 
 [[package]]
 name = "taskipy"
@@ -944,26 +995,12 @@ optional = false
 python-versions = "*"
 
 [[package]]
-name = "tinysegmenter"
-version = "0.3"
-description = "Very compact Japanese tokenizer"
+name = "tld"
+version = "0.12.6"
+description = "Extract the top-level domain (TLD) from the URL given."
 category = "main"
 optional = false
-python-versions = "*"
-
-[[package]]
-name = "tldextract"
-version = "3.3.1"
-description = "Accurately separates a URL's subdomain, domain, and public suffix, using the Public Suffix List (PSL). By default, this includes the public ICANN TLDs and their exceptions. You can optionally support the Public Suffix List's private domains as well."
-category = "main"
-optional = false
-python-versions = ">=3.7"
-
-[package.dependencies]
-filelock = ">=3.0.8"
-idna = "*"
-requests = ">=2.1.0"
-requests-file = ">=1.4"
+python-versions = ">=2.7, <4"
 
 [[package]]
 name = "tomli"
@@ -989,6 +1026,27 @@ telegram = ["requests"]
 slack = ["slack-sdk"]
 notebook = ["ipywidgets (>=6)"]
 dev = ["wheel", "twine", "py-make (>=0.1.0)"]
+
+[[package]]
+name = "trafilatura"
+version = "1.3.0"
+description = "Python package and command-line tool designed to gather text on the Web. It includes discovery, extraction and text processing components. Its main applications are web crawling, downloads, scraping, and extraction of main texts, metadata and comments."
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+certifi = "*"
+charset-normalizer = ">=2.1.0"
+courlan = ">=0.8.3"
+htmldate = ">=1.3.0"
+justext = ">=3.0.0"
+lxml = ">=4.6.4"
+urllib3 = ">=1.26,<2"
+
+[package.extras]
+gui = ["Gooey (>=1.0.1)"]
+all = ["urllib3", "pycurl (>=7.45.1)", "py3langid (>=0.2.2)", "htmldate[speed] (>=1.3.0)", "cchardet (>=2.1.7)"]
 
 [[package]]
 name = "trio"
@@ -1027,6 +1085,31 @@ description = "Backported and Experimental Type Hints for Python 3.7+"
 category = "main"
 optional = false
 python-versions = ">=3.7"
+
+[[package]]
+name = "tzdata"
+version = "2022.2"
+description = "Provider of IANA time zone data"
+category = "main"
+optional = false
+python-versions = ">=2"
+
+[[package]]
+name = "tzlocal"
+version = "4.2"
+description = "tzinfo object for the local timezone"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+"backports.zoneinfo" = {version = "*", markers = "python_version < \"3.9\""}
+pytz-deprecation-shim = "*"
+tzdata = {version = "*", markers = "platform_system == \"Windows\""}
+
+[package.extras]
+devenv = ["black", "pyroma", "pytest-cov", "zest.releaser"]
+test = ["pytest-mock (>=3.3)", "pytest (>=4.3)"]
 
 [[package]]
 name = "uritools"
@@ -1104,7 +1187,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "e8421a246809385ffd00e3b9c1d52bed8e4da7de720eb54d38940e044aeaeacd"
+content-hash = "1530be29286ca5fbb5895b38bae77da072b26caf25f5891a250cd504c564171e"
 
 [metadata.files]
 aiohttp = [
@@ -1156,8 +1239,26 @@ async-timeout = [
 ]
 atomicwrites = []
 attrs = []
-beautifulsoup4 = []
+"backports.zoneinfo" = [
+    {file = "backports.zoneinfo-0.2.1-cp36-cp36m-macosx_10_14_x86_64.whl", hash = "sha256:da6013fd84a690242c310d77ddb8441a559e9cb3d3d59ebac9aca1a57b2e18bc"},
+    {file = "backports.zoneinfo-0.2.1-cp36-cp36m-manylinux1_i686.whl", hash = "sha256:89a48c0d158a3cc3f654da4c2de1ceba85263fafb861b98b59040a5086259722"},
+    {file = "backports.zoneinfo-0.2.1-cp36-cp36m-manylinux1_x86_64.whl", hash = "sha256:1c5742112073a563c81f786e77514969acb58649bcdf6cdf0b4ed31a348d4546"},
+    {file = "backports.zoneinfo-0.2.1-cp36-cp36m-win32.whl", hash = "sha256:e8236383a20872c0cdf5a62b554b27538db7fa1bbec52429d8d106effbaeca08"},
+    {file = "backports.zoneinfo-0.2.1-cp36-cp36m-win_amd64.whl", hash = "sha256:8439c030a11780786a2002261569bdf362264f605dfa4d65090b64b05c9f79a7"},
+    {file = "backports.zoneinfo-0.2.1-cp37-cp37m-macosx_10_14_x86_64.whl", hash = "sha256:f04e857b59d9d1ccc39ce2da1021d196e47234873820cbeaad210724b1ee28ac"},
+    {file = "backports.zoneinfo-0.2.1-cp37-cp37m-manylinux1_i686.whl", hash = "sha256:17746bd546106fa389c51dbea67c8b7c8f0d14b5526a579ca6ccf5ed72c526cf"},
+    {file = "backports.zoneinfo-0.2.1-cp37-cp37m-manylinux1_x86_64.whl", hash = "sha256:5c144945a7752ca544b4b78c8c41544cdfaf9786f25fe5ffb10e838e19a27570"},
+    {file = "backports.zoneinfo-0.2.1-cp37-cp37m-win32.whl", hash = "sha256:e55b384612d93be96506932a786bbcde5a2db7a9e6a4bb4bffe8b733f5b9036b"},
+    {file = "backports.zoneinfo-0.2.1-cp37-cp37m-win_amd64.whl", hash = "sha256:a76b38c52400b762e48131494ba26be363491ac4f9a04c1b7e92483d169f6582"},
+    {file = "backports.zoneinfo-0.2.1-cp38-cp38-macosx_10_14_x86_64.whl", hash = "sha256:8961c0f32cd0336fb8e8ead11a1f8cd99ec07145ec2931122faaac1c8f7fd987"},
+    {file = "backports.zoneinfo-0.2.1-cp38-cp38-manylinux1_i686.whl", hash = "sha256:e81b76cace8eda1fca50e345242ba977f9be6ae3945af8d46326d776b4cf78d1"},
+    {file = "backports.zoneinfo-0.2.1-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:7b0a64cda4145548fed9efc10322770f929b944ce5cee6c0dfe0c87bf4c0c8c9"},
+    {file = "backports.zoneinfo-0.2.1-cp38-cp38-win32.whl", hash = "sha256:1b13e654a55cd45672cb54ed12148cd33628f672548f373963b0bff67b217328"},
+    {file = "backports.zoneinfo-0.2.1-cp38-cp38-win_amd64.whl", hash = "sha256:4a0f800587060bf8880f954dbef70de6c11bbe59c673c3d818921f042f9954a6"},
+    {file = "backports.zoneinfo-0.2.1.tar.gz", hash = "sha256:fadbfe37f74051d024037f223b8e001611eac868b5c5b06144ef4d8b799862f2"},
+]
 black = []
+breadability = []
 cachetools = []
 certifi = [
     {file = "certifi-2022.6.15-py3-none-any.whl", hash = "sha256:fe86415d55e84719d75f8b69414f6438ac3547d2078ab91b67e779ef69378412"},
@@ -1175,20 +1276,15 @@ colorama = [
     {file = "colorama-0.4.5-py2.py3-none-any.whl", hash = "sha256:854bf444933e37f5824ae7bfc1e98d5bce2ebe4160d46b5edf346a89358e99da"},
     {file = "colorama-0.4.5.tar.gz", hash = "sha256:e6c6b4334fc50988a639d9b98aa429a0b57da6e17b9a44f0451f930b6967b7a4"},
 ]
+courlan = []
 cryptography = []
-cssselect = [
-    {file = "cssselect-1.1.0-py2.py3-none-any.whl", hash = "sha256:f612ee47b749c877ebae5bb77035d8f4202c6ad0f0fc1271b3c18ad6c4468ecf"},
-    {file = "cssselect-1.1.0.tar.gz", hash = "sha256:f95f8dedd925fd8f54edb3d2dfb44c190d9d18512377d3c1e2388d16126879bc"},
-]
+dateparser = []
 decorator = []
 "discord.py" = [
     {file = "discord.py-1.7.3-py3-none-any.whl", hash = "sha256:c6f64db136de0e18e090f6752ea68bdd4ab0a61b82dfe7acecefa22d6477bb0c"},
     {file = "discord.py-1.7.3.tar.gz", hash = "sha256:462cd0fe307aef8b29cbfa8dd613e548ae4b2cb581d46da9ac0d46fb6ea19408"},
 ]
-feedfinder2 = [
-    {file = "feedfinder2-0.0.4.tar.gz", hash = "sha256:3701ee01a6c85f8b865a049c30ba0b4608858c803fe8e30d1d289fdbe89d0efe"},
-]
-feedparser = []
+docopt = []
 filelock = []
 google-api-core = []
 google-auth = []
@@ -1201,18 +1297,21 @@ h11 = [
     {file = "h11-0.13.0-py3-none-any.whl", hash = "sha256:8ddd78563b633ca55346c8cd41ec0af27d3c79931828beffb46ce70a379e7442"},
     {file = "h11-0.13.0.tar.gz", hash = "sha256:70813c1135087a248a4d38cc0e1a0181ffab2188141a93eaf567940c3957ff06"},
 ]
+htmldate = []
 idna = [
     {file = "idna-2.10-py2.py3-none-any.whl", hash = "sha256:b97d804b1e9b523befed77c48dacec60e6dcb0b5391d57af6a65a312a90648c0"},
     {file = "idna-2.10.tar.gz", hash = "sha256:b307872f855b18632ce0c21c5e45be78c0ea7ae4c15c828c20788b26921eb3f6"},
 ]
 imageio = []
 imageio-ffmpeg = []
-jieba3k = [
-    {file = "jieba3k-0.35.1.zip", hash = "sha256:980a4f2636b778d312518066be90c7697d410dd5a472385f5afced71a2db1c10"},
-]
 joblib = [
     {file = "joblib-1.1.0-py2.py3-none-any.whl", hash = "sha256:f21f109b3c7ff9d95f8387f752d0d9c34a02aa2f7060c2135f465da0e5160ff6"},
     {file = "joblib-1.1.0.tar.gz", hash = "sha256:4158fcecd13733f8be669be0683b96ebdbbd38d23559f54dca7205aea1bf1e35"},
+]
+justext = []
+langcodes = [
+    {file = "langcodes-3.3.0-py3-none-any.whl", hash = "sha256:4d89fc9acb6e9c8fdef70bcdf376113a3db09b67285d9e1d534de6d8818e7e69"},
+    {file = "langcodes-3.3.0.tar.gz", hash = "sha256:794d07d5a28781231ac335a1561b8442f8648ca07cd518310aeb45d6f0807ef6"},
 ]
 lxml = []
 more-itertools = []
@@ -1285,10 +1384,6 @@ multidict = [
 mypy-extensions = [
     {file = "mypy_extensions-0.4.3-py2.py3-none-any.whl", hash = "sha256:090fedd75945a69ae91ce1303b5824f428daf5a028d2f6ab8a299250a846f15d"},
     {file = "mypy_extensions-0.4.3.tar.gz", hash = "sha256:2d82818f5bb3e369420cb3c4060a7970edba416647068eb4c5343488a6c604a8"},
-]
-newspaper3k = [
-    {file = "newspaper3k-0.2.8-py3-none-any.whl", hash = "sha256:44a864222633d3081113d1030615991c3dbba87239f6bbf59d91240f71a22e3e"},
-    {file = "newspaper3k-0.2.8.tar.gz", hash = "sha256:9f1bd3e1fb48f400c715abf875cc7b0a67b7ddcd87f50c9aeeb8fcbbbd9004fb"},
 ]
 nltk = []
 numpy = []
@@ -1381,11 +1476,16 @@ pyasn1-modules = [
     {file = "pyasn1_modules-0.2.8-py3.6.egg", hash = "sha256:cbac4bc38d117f2a49aeedec4407d23e8866ea4ac27ff2cf7fb3e5b570df19e0"},
     {file = "pyasn1_modules-0.2.8-py3.7.egg", hash = "sha256:c29a5e5cc7a3f05926aff34e097e84f8589cd790ce0ed41b67aed6857b26aafd"},
 ]
+pycountry = []
 pycparser = [
     {file = "pycparser-2.21-py2.py3-none-any.whl", hash = "sha256:8ee45429555515e1f6b185e78100aea234072576aa43ab53aefcae078162fca9"},
     {file = "pycparser-2.21.tar.gz", hash = "sha256:e644fdec12f7872f86c58ff790da456218b10f863970249516d60a5eaca77206"},
 ]
 pydantic = []
+pydub = [
+    {file = "pydub-0.25.1-py2.py3-none-any.whl", hash = "sha256:65617e33033874b59d87db603aa1ed450633288aefead953b30bded59cb599a6"},
+    {file = "pydub-0.25.1.tar.gz", hash = "sha256:980a33ce9949cab2a569606b65674d748ecbca4f0796887fd6f46173a7b0d30f"},
+]
 pyopenssl = [
     {file = "pyOpenSSL-22.0.0-py2.py3-none-any.whl", hash = "sha256:ea252b38c87425b64116f808355e8da644ef9b07e429398bfece610f893ee2e0"},
     {file = "pyOpenSSL-22.0.0.tar.gz", hash = "sha256:660b1b1425aac4a1bea1d94168a85d99f0b3144c869dd4390d27629d0087f1bf"},
@@ -1409,33 +1509,15 @@ python-dateutil = [
 ]
 python-dotenv = []
 python-slugify = []
-pyyaml = [
-    {file = "PyYAML-3.11.tar.gz", hash = "sha256:c36c938a872e5ff494938b33b14aaa156cb439ec67548fcab3535bb78b0846e8"},
-    {file = "PyYAML-3.11.win-amd64-py2.6.exe", hash = "sha256:b54b4782da60c7dfe5d850524416dd03f3b9a516ed476ce1d5a2712cde75d683"},
-    {file = "PyYAML-3.11.win-amd64-py2.7.exe", hash = "sha256:2db3d4c54d3eb47ad7169806e684d5243d4a14749cb9741ef5d1ac3291d67a1a"},
-    {file = "PyYAML-3.11.win-amd64-py3.1.exe", hash = "sha256:3e8c104861b5839a36e6b30c2f964d6fbf4a2e2b87ae9c289da699b21e35c91b"},
-    {file = "PyYAML-3.11.win-amd64-py3.2.exe", hash = "sha256:7a02d22209e41ba55bd8a65fa69ee593af30a857f6e33fc9c80589e6b477c36b"},
-    {file = "PyYAML-3.11.win-amd64-py3.3.exe", hash = "sha256:d9b72815d3cdc5e1c3f1f44498a5e884fe4dcdb3f6428fa086e35af8160d2809"},
-    {file = "PyYAML-3.11.win-amd64-py3.4.exe", hash = "sha256:c81b0cccf6b6bfc0432c1a96c07b64b76472118ec789bc4891447cc5298bd1c7"},
-    {file = "PyYAML-3.11.win32-py2.6.exe", hash = "sha256:e3bc2528c3a0f396908b5f8784795f3f7b62e8b2573c2db736addccfb22449e4"},
-    {file = "PyYAML-3.11.win32-py2.7.exe", hash = "sha256:ca129663271174f9783e1177195e4288945a504db89f5c3889da75e0abbd0a67"},
-    {file = "PyYAML-3.11.win32-py3.1.exe", hash = "sha256:d44be6e77802ea845911e000e29d781ba2900a0fe3b38fc0f5b74f5f77d2e4f0"},
-    {file = "PyYAML-3.11.win32-py3.2.exe", hash = "sha256:2abbe0b237b42e075e5a59f90766c0a18cc29aea3baa7a152cc16f62fa556daa"},
-    {file = "PyYAML-3.11.win32-py3.3.exe", hash = "sha256:ad55a89cc264b74be59df9fdcea1dffd14f435d955eae2ac822a28563be2fe48"},
-    {file = "PyYAML-3.11.win32-py3.4.exe", hash = "sha256:e25c2074189eb72056778c88344f47e5e7378afd52da62014bb3e86efce947c1"},
-    {file = "PyYAML-3.11.zip", hash = "sha256:19bb3ac350ef878dda84a62d37c7d5c17a137386dde9c2ce7249c7a21d7f6ac9"},
+pytz = []
+pytz-deprecation-shim = [
+    {file = "pytz_deprecation_shim-0.1.0.post0-py2.py3-none-any.whl", hash = "sha256:8314c9692a636c8eb3bda879b9f119e350e93223ae83e70e80c31675a0fdc1a6"},
+    {file = "pytz_deprecation_shim-0.1.0.post0.tar.gz", hash = "sha256:af097bae1b616dde5c5744441e2ddc69e74dfdcb0c263129610d85b87445a59d"},
 ]
 regex = []
 requests = []
-requests-file = [
-    {file = "requests-file-1.5.1.tar.gz", hash = "sha256:07d74208d3389d01c38ab89ef403af0cfec63957d53a0081d8eca738d0247d8e"},
-    {file = "requests_file-1.5.1-py2.py3-none-any.whl", hash = "sha256:dfe5dae75c12481f68ba353183c53a65e6044c923e64c24b2209f6c7570ca953"},
-]
 rsa = []
 selenium = []
-sgmllib3k = [
-    {file = "sgmllib3k-1.0.0.tar.gz", hash = "sha256:7868fb1c8bfa764c1ac563d3cf369c381d1325d36124933a726f29fcdaa812e9"},
-]
 six = [
     {file = "six-1.7.3-py2.py3-none-any.whl", hash = "sha256:3388fc1a2ca7a5d4261b4d1e3d8b7342cbf4bf1cfb3702311c609321432ced78"},
     {file = "six-1.7.3.tar.gz", hash = "sha256:7a842c9f882c0b2ab1064d567bb9fff6a21c9efbc3d9992083ad6193787ed393"},
@@ -1448,8 +1530,8 @@ sortedcontainers = [
     {file = "sortedcontainers-2.4.0-py2.py3-none-any.whl", hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0"},
     {file = "sortedcontainers-2.4.0.tar.gz", hash = "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88"},
 ]
-soupsieve = []
 sqlitedict = []
+sumy = []
 taskipy = [
     {file = "taskipy-1.10.2-py3-none-any.whl", hash = "sha256:58d5382d90d5dd94ca8c612855377e5a98b9cb669c208ebb55d6a45946de3f9b"},
     {file = "taskipy-1.10.2.tar.gz", hash = "sha256:eae4feb74909da3ad0ca0275802e1c2f56048612529bd763feb922d284d8a253"},
@@ -1458,15 +1540,13 @@ text-unidecode = [
     {file = "text-unidecode-1.3.tar.gz", hash = "sha256:bad6603bb14d279193107714b288be206cac565dfa49aa5b105294dd5c4aab93"},
     {file = "text_unidecode-1.3-py2.py3-none-any.whl", hash = "sha256:1311f10e8b895935241623731c2ba64f4c455287888b18189350b67134a822e8"},
 ]
-tinysegmenter = [
-    {file = "tinysegmenter-0.3.tar.gz", hash = "sha256:ed1f6d2e806a4758a73be589754384cbadadc7e1a414c81a166fc9adf2d40c6d"},
-]
-tldextract = []
+tld = []
 tomli = [
     {file = "tomli-2.0.1-py3-none-any.whl", hash = "sha256:939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc"},
     {file = "tomli-2.0.1.tar.gz", hash = "sha256:de526c12914f0c550d15924c62d72abc48d6fe7364aa87328337a31007fe8a4f"},
 ]
 tqdm = []
+trafilatura = []
 trio = [
     {file = "trio-0.21.0-py3-none-any.whl", hash = "sha256:4dc0bf9d5cc78767fc4516325b6d80cc0968705a31d0eec2ecd7cdda466265b0"},
     {file = "trio-0.21.0.tar.gz", hash = "sha256:523f39b7b69eef73501cebfe1aafd400a9aad5b03543a0eded52952488ff1c13"},
@@ -1476,6 +1556,11 @@ trio-websocket = [
     {file = "trio_websocket-0.9.2-py3-none-any.whl", hash = "sha256:5b558f6e83cc20a37c3b61202476c5295d1addf57bd65543364e0337e37ed2bc"},
 ]
 typing-extensions = []
+tzdata = []
+tzlocal = [
+    {file = "tzlocal-4.2-py3-none-any.whl", hash = "sha256:89885494684c929d9191c57aa27502afc87a579be5cdd3225c77c463ea043745"},
+    {file = "tzlocal-4.2.tar.gz", hash = "sha256:ee5842fa3a795f023514ac2d801c4a81d1743bbe642e3940143326b3a00addd7"},
+]
 uritools = []
 urlextract = []
 urllib3 = []

@@ -1,6 +1,5 @@
 import discord
 from discord.ext import commands, tasks
-from newspaper import Article, Config
 from gtts import gTTS
 from slugify import slugify
 from itertools import cycle
@@ -9,7 +8,6 @@ from urlextract import URLExtract
 from sqlitedict import SqliteDict
 from asyncio import TimeoutError
 from moviepy.editor import ColorClip, AudioFileClip, ImageClip
-from textwrap import TextWrapper
 from datetime import datetime
 import os
 from pydantic import BaseSettings
@@ -18,24 +16,28 @@ import chromedriver_autoinstaller
 from selenium.webdriver.chrome.options import Options
 import google.cloud.texttospeech as tts
 from datetime import timedelta
+from summerizer import summarize
+from text_processing import process_text
+import trafilatura
+from pydub import AudioSegment
 
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/michael/paperboy/key.json'
 
-def text_to_speech(filename: str, text: str):
-    text_input = tts.SynthesisInput(text=text)
+def text_to_speech(filename: str, chunked_text: [str]):
     voice_params = tts.VoiceSelectionParams(
         language_code="en-US", name="en-US-Wavenet-I"
     )
     audio_config = tts.AudioConfig(audio_encoding=tts.AudioEncoding.LINEAR16)
-    print(audio_config)
     client = tts.TextToSpeechClient()
-    response = client.synthesize_speech(
-        input=text_input, voice=voice_params, audio_config=audio_config
-    )
+    audio = AudioSegment.empty()
+    for text in chunked_text:
+        text_input = tts.SynthesisInput(text=text)
+        response = client.synthesize_speech(
+            input=text_input, voice=voice_params, audio_config=audio_config
+        )
+        audio += AudioSegment(data=response.audio_content)
 
-    #filename = f"{language_code}.wav"
-    with open(filename, "wb") as out:
-        out.write(response.audio_content)
-        print(f'Generated speech saved to "{filename}"')
+    audio.export(filename)
 
 
 chromedriver_autoinstaller.install()
@@ -55,12 +57,6 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-wrapper = TextWrapper()
-wrapper.width = 120
-wrapper.fix_sentence_endings = True
-wrapper.break_long_words = False
-wrapper.break_on_hyphens = False
-
 db = SqliteDict("db.sqlite", autocommit=True)
 
 intents = discord.Intents.all()
@@ -69,9 +65,6 @@ bot = commands.Bot(command_prefix="$", description="Reads news articles.", inten
 status = cycle(["run $help for more"])
 
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:78.0) Gecko/20100101 Firefox/78.0'
-
-config = Config()
-config.browser_user_agent = USER_AGENT
 
 
 @tasks.loop(seconds=10)
@@ -197,6 +190,7 @@ async def process_article(url, message):
         print("downlowding article")
         # Divert paywall
         article = None
+        source = None
         if divert_paywall(url):
             driver = webdriver.Chrome(chrome_options=chrome_options)
             driver.implicitly_wait(10)
@@ -204,33 +198,36 @@ async def process_article(url, message):
             driver.switch_to.frame(driver.find_element("xpath", "//iframe[1]"))
             source = driver.page_source
             driver.quit()
-            article = Article('', config=config)
-            article.set_html(source)
         else:
-            article = Article(url, config=config)
-            article.download()
+            source = trafilatura.fetch_url(url)
 
         print("parsing article")
-        article.parse()
+        article = trafilatura.bare_extraction(
+            source,
+            url=url,
+            include_comments=False,
+            include_tables=False,
+            favor_precision=True
+        )
+        audio_file_name = f"{slugify(article['title'])}.mp3"
+        text_file_name = f"{slugify(article['title'])}.txt"
         print("running nlp on article")
-        article.nlp()
-        print("running text to speech")
-        audio_file_name = f"{slugify(article.title)}.mp3"
-        text_file_name = f"{slugify(article.title)}.txt"
-        text = "\n".join(wrapper.wrap(article.text))
+        summary = summarize(article['text'])
+        print(len(summary), summary)
         #tts = gTTS(text=text, lang="en", slow=False)
         #tts.save(f"./articles/{audio_file_name}")
-        text_to_speech(f"./articles/{audio_file_name}", text)
+        print("running text to speech")
+        chunked_text = process_text(article['text'])
+        text_to_speech(f"./articles/{audio_file_name}", chunked_text)
         print("running video conversion")
         video_file_name, video_length = color_clip(f"./articles/{audio_file_name}")
         with open(f"./articles/{text_file_name}", 'w') as txt:
-            txt.write(text)
-        meta = f"By: __{','.join(article.authors or [])}__ {article.publish_date or datetime.min:%Y-%m-%d}\n"
+            txt.write(article['text'])
+        meta = f"By: __{article['author']}__ published: *{article['date']}*"
         print("uploading article to discord")
         # check for aiohttp.client_exceptions.ClientOSError
         await message.channel.send(
-            f"**SUMMARY: {article.title}**\n{meta}{article.summary[:2000]}\n\nlength {str(video_length).split('.')[0]}",
-            #f"**SUMMARY: {title}**\n{meta}{content[:2000]}",
+            f"> **SUMMARY: {article['title']}**\n> {summary}\n> {meta}\nlength {str(video_length).split('.')[0]}",
             file=discord.File(video_file_name),
             reference=message,
         )
@@ -291,5 +288,5 @@ async def on_message(message):
             await message.add_reaction("🚫")
             return
 
-
-bot.run(settings.token)  # , log_handler=handler)
+if __name__ == "__main__":
+    bot.run(settings.token)  # , log_handler=handler)

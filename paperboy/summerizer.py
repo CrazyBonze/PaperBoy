@@ -16,4 +16,8 @@ def summarize(text, sentences=SENTENCES_COUNT, language=LANGUAGE):
     summarizer = Summarizer(stemmer)
     summarizer.stop_words = get_stop_words(LANGUAGE)
 
-    return shorten(" ".join([str(s) for s in summarizer(parser.document, SENTENCES_COUNT)]), width=1800, placeholder="...")
+    return shorten(
+        " ".join([str(s) for s in summarizer(parser.document, SENTENCES_COUNT)]),
+        width=1800,
+        placeholder="...",
+    )

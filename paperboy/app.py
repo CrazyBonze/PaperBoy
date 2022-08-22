@@ -7,7 +7,8 @@ from urllib.parse import urlparse
 from urlextract import URLExtract
 from sqlitedict import SqliteDict
 from asyncio import TimeoutError
-from moviepy.editor import ColorClip, AudioFileClip, ImageClip
+from aiohttp.client_exceptions import ClientOSError
+from moviepy.editor import ColorClip, AudioFileClip, ImageClip, concatenate_audioclips
 from datetime import datetime
 import os
 from pydantic import BaseSettings
@@ -18,10 +19,12 @@ import google.cloud.texttospeech as tts
 from datetime import timedelta
 from summerizer import summarize
 from text_processing import process_text
+from retry import Retry
 import trafilatura
-from pydub import AudioSegment
+import tempfile
 
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/michael/paperboy/key.json'
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/home/michael/paperboy/key.json"
+
 
 def text_to_speech(filename: str, chunked_text: [str]):
     voice_params = tts.VoiceSelectionParams(
@@ -29,15 +32,18 @@ def text_to_speech(filename: str, chunked_text: [str]):
     )
     audio_config = tts.AudioConfig(audio_encoding=tts.AudioEncoding.LINEAR16)
     client = tts.TextToSpeechClient()
-    audio = AudioSegment.empty()
-    for text in chunked_text:
-        text_input = tts.SynthesisInput(text=text)
-        response = client.synthesize_speech(
-            input=text_input, voice=voice_params, audio_config=audio_config
-        )
-        audio += AudioSegment(data=response.audio_content)
-
-    audio.export(filename)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_audio = []
+        for i, text in enumerate(chunked_text):
+            text_input = tts.SynthesisInput(text=text)
+            response = client.synthesize_speech(
+                input=text_input, voice=voice_params, audio_config=audio_config
+            )
+            with open(f"{tmp_dir}/{i}.mp3", "wb") as out:
+                out.write(response.audio_content)
+                tmp_audio.append(AudioFileClip(out.name))
+        concat_clip = concatenate_audioclips(tmp_audio)
+        concat_clip.write_audiofile(filename)
 
 
 chromedriver_autoinstaller.install()
@@ -52,25 +58,30 @@ class Settings(BaseSettings):
     channels = [int]
 
     class Config:
-        env_file = '.env'
-        env_file_encoding = 'utf-8'
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+
 
 settings = Settings()
 
 db = SqliteDict("db.sqlite", autocommit=True)
 
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="$", description="Reads news articles.", intents=intents)
+bot = commands.Bot(
+    command_prefix="$", description="Reads news articles.", intents=intents
+)
 
 status = cycle(["run $help for more"])
 
-USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:78.0) Gecko/20100101 Firefox/78.0'
+USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:78.0) Gecko/20100101 Firefox/78.0"
+)
 
 
-@tasks.loop(seconds=10)
+@tasks.loop(seconds=15)
 async def changeStatus():
     await bot.change_presence(
-        status=discord.Status.do_not_disturb,
+        status=discord.Status.idle,
         activity=discord.Activity(
             type=discord.ActivityType.watching, name=next(status)
         ),
@@ -97,7 +108,7 @@ async def add(ctx, url):
     """Add a domain to the whitelist"""
     url_parsed = urlparse(url)
     if str(url_parsed.netloc) not in db:
-        db[url_parsed.netloc] = {"whitelist": True, 'paywall': False}
+        db[url_parsed.netloc] = {"whitelist": True, "paywall": False}
     else:
         url_profile = db[url_parsed.netloc]
         url_profile["whitelist"] = True
@@ -115,6 +126,7 @@ async def rm(ctx, url):
     del db[url_parsed.netloc]
     await ctx.send(f"**{url_parsed.netloc}** removed from database.")
 
+
 @bot.command(name="paywall", description="Add or remove paywall.")
 async def paywall(ctx, url):
     """Turn onn and off paywall diversion."""
@@ -127,6 +139,7 @@ async def paywall(ctx, url):
     db[url_parsed.netloc] = url_profile
     await ctx.send(f"**{url_parsed.netloc}**: {db[url_parsed.netloc]}")
 
+
 @bot.command(name="whitelist", description="Add or remove whitelist.")
 async def whitelist(ctx, url):
     """Turn onn and off paywall diversion."""
@@ -138,6 +151,7 @@ async def whitelist(ctx, url):
     url_profile["whitelist"] = not url_profile["whitelist"]
     db[url_parsed.netloc] = url_profile
     await ctx.send(f"**{url_parsed.netloc}**: {db[url_parsed.netloc]}")
+
 
 @bot.command(name="ping", description="Check response.")
 async def ping(ctx):
@@ -163,27 +177,29 @@ async def on_ready():
         f"{guild.name}(id: {guild.id})"
     )
 
-def color_clip(audio, fps=14, color=(0,0,0)):
+
+def color_clip(audio, color=(0, 0, 0)):
     filename = f"{audio.replace('.mp3', '.webm')}"
     size = (200, 100)
     audioclip = AudioFileClip(audio)
-    clip = ImageClip("cat_paper.jpg", duration=audioclip.duration + 0.25)
-    #clip = ColorClip(size, color, duration=audioclip.duration)
+    clip = ImageClip("cat_paper.jpg", duration=audioclip.duration + 0.1)
+    # clip = ColorClip(size, color, duration=audioclip.duration + 0.1)
     videoclip = clip.set_audio(audioclip)
-    videoclip.write_videofile(filename, fps=fps)
+    videoclip.write_videofile(filename, fps=1, audio_bitrate="84k", threads=4)
     return filename, timedelta(seconds=videoclip.duration)
+
 
 def divert_paywall(url):
     url_parsed = urlparse(url)
     url_profile = db[url_parsed.netloc]
     return url_profile["paywall"]
 
+
 async def process_article(url, message):
     await message.add_reaction("📰")
     await bot.change_presence(
-        status=discord.Status.do_not_disturb,
         activity=discord.Activity(
-            type=discord.ActivityType.playing, name="busy doing shit"
+            type=discord.ActivityType.playing, name="Reading article 📖"
         ),
     )
     async with message.channel.typing():
@@ -207,30 +223,46 @@ async def process_article(url, message):
             url=url,
             include_comments=False,
             include_tables=False,
-            favor_precision=True
+            favor_precision=True,
         )
         audio_file_name = f"{slugify(article['title'])}.mp3"
         text_file_name = f"{slugify(article['title'])}.txt"
         print("running nlp on article")
-        summary = summarize(article['text'])
-        print(len(summary), summary)
-        #tts = gTTS(text=text, lang="en", slow=False)
-        #tts.save(f"./articles/{audio_file_name}")
+        summary = summarize(article["text"])
+        # tts = gTTS(text=text, lang="en", slow=False)
+        # tts.save(f"./articles/{audio_file_name}")
+        await bot.change_presence(
+            activity=discord.Activity(
+                type=discord.ActivityType.playing, name="Recording article 🎙️"
+            ),
+        )
         print("running text to speech")
-        chunked_text = process_text(article['text'])
+        chunked_text = process_text(article["text"])
         text_to_speech(f"./articles/{audio_file_name}", chunked_text)
+        await bot.change_presence(
+            activity=discord.Activity(
+                type=discord.ActivityType.playing, name="Creating video 📼"
+            ),
+        )
         print("running video conversion")
         video_file_name, video_length = color_clip(f"./articles/{audio_file_name}")
-        with open(f"./articles/{text_file_name}", 'w') as txt:
-            txt.write(article['text'])
+        with open(f"./articles/{text_file_name}", "w") as txt:
+            for chunk in chunked_text:
+                txt.write(chunk)
         meta = f"By: __{article['author']}__ published: *{article['date']}*"
-        print("uploading article to discord")
-        # check for aiohttp.client_exceptions.ClientOSError
-        await message.channel.send(
-            f"> **SUMMARY: {article['title']}**\n> {summary}\n> {meta}\nlength {str(video_length).split('.')[0]}",
-            file=discord.File(video_file_name),
-            reference=message,
+        await bot.change_presence(
+            activity=discord.Activity(
+                type=discord.ActivityType.playing, name="Uploading"
+            ),
         )
+        print("uploading article to discord")
+        with Retry(ClientOSError) as r:
+            print(f"upload attempt {r.trys}")
+            await message.channel.send(
+                f"> **SUMMARY: {article['title']}**\n> {summary}\n> {meta}\nlength {str(video_length).split('.')[0]}",
+                files=[discord.File(video_file_name)], #, discord.File(f"./articles/{text_file_name}")],
+                reference=message,
+            )
         print("finished")
 
 
@@ -254,7 +286,8 @@ async def on_message(message):
     for url in urls:
         url_parsed = urlparse(url)
         if url_parsed.netloc not in db:
-            db[url_parsed.netloc] = {"whitelist": False, 'paywall': False}
+            db[url_parsed.netloc] = {"whitelist": False, "paywall": False}
+
             def check(reaction, user):
                 return (
                     reply.id == reaction.message.id
@@ -275,10 +308,9 @@ async def on_message(message):
                 await reply.delete()
             else:
                 await reply.delete()
-                db[url_parsed.netloc] = {"whitelist": True, 'paywall': False}
+                db[url_parsed.netloc] = {"whitelist": True, "paywall": False}
                 await process_article(url, message)
             return
-
 
         url_profile = db[url_parsed.netloc]
         if url_profile["whitelist"]:
@@ -287,6 +319,7 @@ async def on_message(message):
         if not url_profile["whitelist"]:
             await message.add_reaction("🚫")
             return
+
 
 if __name__ == "__main__":
     bot.run(settings.token)  # , log_handler=handler)

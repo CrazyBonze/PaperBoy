@@ -24,6 +24,7 @@ import trafilatura
 import tempfile
 from courlan import check_url
 import validators
+from concurrent.futures.thread import ThreadPoolExecutor
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/home/michael/paperboy/key.json"
 
@@ -194,23 +195,14 @@ async def color_clip(audio, color=(0, 0, 0)):
     return filename, timedelta(seconds=videoclip.duration)
 
 
-def divert_paywall(url):
-    url_parsed = urlparse(url)
-    url_profile = db[url_parsed.netloc]
-    return url_profile["paywall"]
 
+async def get_source(url):
+    def divert_paywall(url):
+        url_parsed = urlparse(url)
+        url_profile = db[url_parsed.netloc]
+        return url_profile["paywall"]
 
-async def process_article(url, message):
-    await message.add_reaction("📰")
-    await bot.change_presence(
-        activity=discord.Activity(
-            type=discord.ActivityType.playing, name="Reading article 📖"
-        ),
-    )
-    async with message.channel.typing():
-        print("downlowding article")
-        # Divert paywall
-        article = None
+    def scrape(url):
         source = None
         if divert_paywall(url):
             driver = webdriver.Chrome(options=chrome_options)
@@ -225,47 +217,71 @@ async def process_article(url, message):
             driver.get(url)
             source = driver.page_source
             driver.quit()
-            #source = trafilatura.fetch_url(url, config={'USER_AGENTS': [USER_AGENT]})
+        return source
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        source = executor.submit(scrape, url)
+        return source.result()
+
+async def get_article(source, url):
+    return trafilatura.bare_extraction(
+        source,
+        url=url,
+        include_comments=False,
+        include_tables=False,
+        favor_precision=True,
+    )
+
+
+async def process_article(url, message):
+    await message.add_reaction("📰")
+    async with message.channel.typing():
+        print("downlowding article")
+        await bot.change_presence(
+            activity=discord.Activity(
+                type=discord.ActivityType.playing, name="Reading article 📖"
+            ),
+        )
+        # Divert paywall
+        source = await get_source(url)
 
         print("parsing article")
-        article = trafilatura.bare_extraction(
-            source,
-            url=url,
-            include_comments=False,
-            include_tables=False,
-            favor_precision=True,
-        )
+        article = await get_article(source, url)
         audio_file_name = f"{slugify(article['title'])}.mp3"
         text_file_name = f"{slugify(article['title'])}.txt"
+
         print("running nlp on article")
         summary = await summarize(article["text"])
         # tts = gTTS(text=text, lang="en", slow=False)
         # tts.save(f"./articles/{audio_file_name}")
+
+        print("running text to speech")
         await bot.change_presence(
             activity=discord.Activity(
                 type=discord.ActivityType.playing, name="Recording article 🎙️"
             ),
         )
-        print("running text to speech")
         chunked_text = await process_text(article["text"])
         await text_to_speech(f"./articles/{audio_file_name}", chunked_text)
+
+        print("running video conversion")
         await bot.change_presence(
             activity=discord.Activity(
                 type=discord.ActivityType.playing, name="Creating video 📼"
             ),
         )
-        print("running video conversion")
         video_file_name, video_length = await color_clip(f"./articles/{audio_file_name}")
         with open(f"./articles/{text_file_name}", "w") as txt:
             for chunk in chunked_text:
                 txt.write(chunk)
         meta = f"By: __{article['author']}__ published: *{article['date']}*"
+
+        print("uploading article to discord")
         await bot.change_presence(
             activity=discord.Activity(
                 type=discord.ActivityType.playing, name="Uploading"
             ),
         )
-        print("uploading article to discord")
         with Retry(ClientOSError) as r:
             print(f"upload attempt {r.trys}")
             await message.channel.send(

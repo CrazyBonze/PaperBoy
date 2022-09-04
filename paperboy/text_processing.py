@@ -8,8 +8,7 @@ wrapper.break_on_hyphens = False
 
 MAX_CHUNK = 5000
 
-
-def process_text(text):
+async def process_text(text):
     formatted = []
     for t in text.split("\n"):
         formatted.append("\n".join(wrapper.wrap(t)))

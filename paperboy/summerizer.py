@@ -8,8 +8,7 @@ from textwrap import shorten
 LANGUAGE = "english"
 SENTENCES_COUNT = 5
 
-
-def summarize(text, sentences=SENTENCES_COUNT, language=LANGUAGE):
+async def summarize(text, sentences=SENTENCES_COUNT, language=LANGUAGE):
     parser = PlaintextParser.from_string(text, Tokenizer(language))
     stemmer = Stemmer(LANGUAGE)
 

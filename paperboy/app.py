@@ -22,11 +22,13 @@ from text_processing import process_text
 from retry import Retry
 import trafilatura
 import tempfile
+from courlan import check_url
+import validators
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/home/michael/paperboy/key.json"
 
 
-def text_to_speech(filename: str, chunked_text: [str]):
+async def text_to_speech(filename: str, chunked_text: [str]):
     voice_params = tts.VoiceSelectionParams(
         language_code="en-US", name="en-US-Wavenet-I"
     )
@@ -106,51 +108,55 @@ async def all(ctx):
 @_list.command(name="add")
 async def add(ctx, url):
     """Add a domain to the whitelist"""
-    url_parsed = urlparse(url)
-    if str(url_parsed.netloc) not in db:
-        db[url_parsed.netloc] = {"whitelist": True, "paywall": False}
-    else:
-        url_profile = db[url_parsed.netloc]
-        url_profile["whitelist"] = True
-        db[url_parsed.netloc] = url_profile
-    await ctx.send(f"**{url_parsed.netloc}**: {db[url_parsed.netloc]}")
+    domain = ".".join([d for d in list(tldextract.extract(url)) if d])
+    if validators.domain(domain) is not True:
+        await ctx.send(f"No valid domain found in {url}.")
+        return
+    if domain not in db:
+        db[domain] = {"whitelist": True, "paywall": False}
+        await ctx.send(f"**{domain}**: {db[domain]}")
+        return
+    await ctx.send(f"**{domain}** already in database.")
 
 
 @_list.command(name="rm")
 async def rm(ctx, url):
     """Remove a domain from the whitelist"""
     url_parsed = urlparse(url)
-    if str(url_parsed.netloc) not in db:
-        await ctx.send(f"**{url_parsed.netloc}** not found in database.")
+    domain = str(url_parsed.netloc) or url
+    if domain not in db:
+        await ctx.send(f"**{url}** not found in database.")
         return
-    del db[url_parsed.netloc]
-    await ctx.send(f"**{url_parsed.netloc}** removed from database.")
+    del db[domain]
+    await ctx.send(f"**{domain}** removed from database.")
 
 
 @bot.command(name="paywall", description="Add or remove paywall.")
 async def paywall(ctx, url):
     """Turn onn and off paywall diversion."""
     url_parsed = urlparse(url)
-    if str(url_parsed.netloc) not in db:
-        await ctx.send(f"**{url_parsed.netloc}** not found in database.")
+    domain = str(url_parsed.netloc) or url
+    if domain not in db:
+        await ctx.send(f"**{url}** not found in database.")
         return
-    url_profile = db[url_parsed.netloc]
+    url_profile = db[domain]
     url_profile["paywall"] = not url_profile["paywall"]
-    db[url_parsed.netloc] = url_profile
-    await ctx.send(f"**{url_parsed.netloc}**: {db[url_parsed.netloc]}")
+    db[domain] = url_profile
+    await ctx.send(f"**{domain}**: {db[domain]}")
 
 
 @bot.command(name="whitelist", description="Add or remove whitelist.")
 async def whitelist(ctx, url):
     """Turn onn and off paywall diversion."""
     url_parsed = urlparse(url)
-    if str(url_parsed.netloc) not in db:
-        await ctx.send(f"**{url_parsed.netloc}** not found in database.")
+    domain = str(url_parsed.netloc) or url
+    if domain not in db:
+        await ctx.send(f"**{url}** not found in database.")
         return
-    url_profile = db[url_parsed.netloc]
+    url_profile = db[domain]
     url_profile["whitelist"] = not url_profile["whitelist"]
-    db[url_parsed.netloc] = url_profile
-    await ctx.send(f"**{url_parsed.netloc}**: {db[url_parsed.netloc]}")
+    db[domain] = url_profile
+    await ctx.send(f"**{domain}**: {db[domain]}")
 
 
 @bot.command(name="ping", description="Check response.")
@@ -177,8 +183,7 @@ async def on_ready():
         f"{guild.name}(id: {guild.id})"
     )
 
-
-def color_clip(audio, color=(0, 0, 0)):
+async def color_clip(audio, color=(0, 0, 0)):
     filename = f"{audio.replace('.mp3', '.webm')}"
     size = (200, 100)
     audioclip = AudioFileClip(audio)
@@ -208,14 +213,19 @@ async def process_article(url, message):
         article = None
         source = None
         if divert_paywall(url):
-            driver = webdriver.Chrome(chrome_options=chrome_options)
+            driver = webdriver.Chrome(options=chrome_options)
             driver.implicitly_wait(10)
             driver.get(f"https://12ft.io/{url}")
             driver.switch_to.frame(driver.find_element("xpath", "//iframe[1]"))
             source = driver.page_source
             driver.quit()
         else:
-            source = trafilatura.fetch_url(url)
+            driver = webdriver.Chrome(options=chrome_options)
+            driver.implicitly_wait(10)
+            driver.get(url)
+            source = driver.page_source
+            driver.quit()
+            #source = trafilatura.fetch_url(url, config={'USER_AGENTS': [USER_AGENT]})
 
         print("parsing article")
         article = trafilatura.bare_extraction(
@@ -228,7 +238,7 @@ async def process_article(url, message):
         audio_file_name = f"{slugify(article['title'])}.mp3"
         text_file_name = f"{slugify(article['title'])}.txt"
         print("running nlp on article")
-        summary = summarize(article["text"])
+        summary = await summarize(article["text"])
         # tts = gTTS(text=text, lang="en", slow=False)
         # tts.save(f"./articles/{audio_file_name}")
         await bot.change_presence(
@@ -237,15 +247,15 @@ async def process_article(url, message):
             ),
         )
         print("running text to speech")
-        chunked_text = process_text(article["text"])
-        text_to_speech(f"./articles/{audio_file_name}", chunked_text)
+        chunked_text = await process_text(article["text"])
+        await text_to_speech(f"./articles/{audio_file_name}", chunked_text)
         await bot.change_presence(
             activity=discord.Activity(
                 type=discord.ActivityType.playing, name="Creating video 📼"
             ),
         )
         print("running video conversion")
-        video_file_name, video_length = color_clip(f"./articles/{audio_file_name}")
+        video_file_name, video_length = await color_clip(f"./articles/{audio_file_name}")
         with open(f"./articles/{text_file_name}", "w") as txt:
             for chunk in chunked_text:
                 txt.write(chunk)
@@ -284,6 +294,9 @@ async def on_message(message):
     extractor = URLExtract()
     urls = extractor.find_urls(user_message)
     for url in urls:
+        # skip domain names
+        if not validators.url(url):
+            continue
         url_parsed = urlparse(url)
         if url_parsed.netloc not in db:
             db[url_parsed.netloc] = {"whitelist": False, "paywall": False}

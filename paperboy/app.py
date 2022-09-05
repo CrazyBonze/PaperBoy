@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from urlextract import URLExtract
 from sqlitedict import SqliteDict
 from asyncio import TimeoutError
+import asyncio
 from aiohttp.client_exceptions import ClientOSError
 from moviepy.editor import ColorClip, AudioFileClip, ImageClip, concatenate_audioclips
 from datetime import datetime
@@ -34,12 +35,12 @@ async def text_to_speech(filename: str, chunked_text: [str]):
         language_code="en-US", name="en-US-Wavenet-I"
     )
     audio_config = tts.AudioConfig(audio_encoding=tts.AudioEncoding.LINEAR16)
-    client = tts.TextToSpeechClient()
+    client = tts.TextToSpeechAsyncClient()
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_audio = []
         for i, text in enumerate(chunked_text):
             text_input = tts.SynthesisInput(text=text)
-            response = client.synthesize_speech(
+            response = await client.synthesize_speech(
                 input=text_input, voice=voice_params, audio_config=audio_config
             )
             with open(f"{tmp_dir}/{i}.mp3", "wb") as out:
@@ -184,16 +185,20 @@ async def on_ready():
         f"{guild.name}(id: {guild.id})"
     )
 
-async def color_clip(audio, color=(0, 0, 0)):
-    filename = f"{audio.replace('.mp3', '.webm')}"
-    size = (200, 100)
-    audioclip = AudioFileClip(audio)
-    clip = ImageClip("cat_paper.jpg", duration=audioclip.duration + 0.1)
-    # clip = ColorClip(size, color, duration=audioclip.duration + 0.1)
-    videoclip = clip.set_audio(audioclip)
-    videoclip.write_videofile(filename, fps=1, audio_bitrate="84k", threads=4)
-    return filename, timedelta(seconds=videoclip.duration)
+async def color_clip(audio):
+    def make_video(audio):
+        filename = f"{audio.replace('.mp3', '.webm')}"
+        size = (200, 100)
+        audioclip = AudioFileClip(audio)
+        clip = ImageClip("cat_paper.jpg", duration=audioclip.duration + 0.1)
+        # clip = ColorClip(size, color=(0, 0, 0), duration=audioclip.duration + 0.1)
+        videoclip = clip.set_audio(audioclip)
+        videoclip.write_videofile(filename, fps=1, audio_bitrate="84k", threads=4)
+        return filename, timedelta(seconds=videoclip.duration)
 
+    loop = asyncio.get_running_loop()
+    done = loop.run_in_executor(None, make_video, audio)
+    return await done
 
 
 async def get_source(url):
@@ -219,9 +224,10 @@ async def get_source(url):
             driver.quit()
         return source
 
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        source = executor.submit(scrape, url)
-        return source.result()
+    loop = asyncio.get_running_loop()
+    done = loop.run_in_executor(None, scrape, url)
+    return await done
+
 
 async def get_article(source, url):
     return trafilatura.bare_extraction(
@@ -321,14 +327,16 @@ async def on_message(message):
                 return (
                     reply.id == reaction.message.id
                     and user == message.author
-                    and str(reaction.emoji) == "✅"
+                    and (str(reaction.emoji) == "✅" or
+                    str(reaction.emoji) == "🚫")
                 )
 
             reply = await message.channel.send(
-                f"**{url_parsed.netloc}** not known, react with ✅ to add to whitelist and parse.",
+                f"**{url_parsed.netloc}** not known, react with ✅ to add to whitelist and parse or 🚫 to ignore.",
                 reference=message,
             )
             await reply.add_reaction("✅")
+            await reply.add_reaction("🚫")
             try:
                 reaction, user = await bot.wait_for(
                     "reaction_add", timeout=60.0, check=check
@@ -336,9 +344,12 @@ async def on_message(message):
             except TimeoutError:
                 await reply.delete()
             else:
-                await reply.delete()
-                db[url_parsed.netloc] = {"whitelist": True, "paywall": False}
-                await process_article(url, message)
+                if str(reaction.emoji) == "✅":
+                    await reply.delete()
+                    db[url_parsed.netloc] = {"whitelist": True, "paywall": False}
+                    await process_article(url, message)
+                elif str(reaction.emoji) == "🚫":
+                    await reply.delete()
             return
 
         url_profile = db[url_parsed.netloc]

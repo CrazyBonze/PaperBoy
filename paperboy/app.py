@@ -20,12 +20,11 @@ import google.cloud.texttospeech as tts
 from datetime import timedelta
 from summerizer import summarize
 from text_processing import process_text
-from retry import Retry
 import trafilatura
 import tempfile
 from courlan import check_url
 import validators
-from concurrent.futures.thread import ThreadPoolExecutor
+import backoff
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/home/michael/paperboy/key.json"
 
@@ -238,6 +237,19 @@ async def get_article(source, url):
         favor_precision=True,
     )
 
+async def backoff_hdlr(details):
+    print ("Backing off {wait:0.1f} seconds after {tries} tries "
+           "calling function {target} with args {args} and kwargs "
+           "{kwargs}".format(**details))
+
+@backoff.on_exception(backoff.constant, ClientOSError, max_tries=3, interval=1, on_backoff=backoff_hdlr)
+async def upload_message(text, video_file_name, reference):
+    await reference.channel.send(
+        text,
+        files=[discord.File(video_file_name)], #, discord.File(f"./articles/{text_file_name}")],
+        reference=reference,
+    )
+
 
 async def process_article(url, message):
     await message.add_reaction("📰")
@@ -288,13 +300,13 @@ async def process_article(url, message):
                 type=discord.ActivityType.playing, name="Uploading"
             ),
         )
-        with Retry(ClientOSError) as r:
-            print(f"upload attempt {r.trys}")
-            await message.channel.send(
-                f"> **SUMMARY: {article['title']}**\n> {summary}\n> {meta}\nlength {str(video_length).split('.')[0]}",
-                files=[discord.File(video_file_name)], #, discord.File(f"./articles/{text_file_name}")],
-                reference=message,
-            )
+
+        print(f"upload attempt")
+        await upload_message(
+            f"> **SUMMARY: {article['title']}**\n> {summary}\n> {meta}\n`length {str(video_length).split('.')[0]}`",
+            video_file_name,
+            message
+        )
         print("finished")
 
 

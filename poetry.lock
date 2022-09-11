@@ -56,6 +56,14 @@ docs = ["sphinx-notfound-page", "zope.interface", "sphinx", "furo"]
 dev = ["cloudpickle", "pre-commit", "sphinx-notfound-page", "sphinx", "furo", "zope.interface", "pytest-mypy-plugins", "mypy (>=0.900,!=0.940)", "pytest (>=4.3.0)", "pympler", "hypothesis", "coverage[toml] (>=5.0.2)"]
 
 [[package]]
+name = "backoff"
+version = "2.1.2"
+description = "Function decoration for backoff and retry"
+category = "main"
+optional = false
+python-versions = ">=3.7,<4.0"
+
+[[package]]
 name = "backports.zoneinfo"
 version = "0.2.1"
 description = "Backport of the standard library zoneinfo module"
@@ -270,22 +278,24 @@ testing = ["covdefaults (>=2.2)", "coverage (>=6.4.2)", "pytest (>=7.1.2)", "pyt
 
 [[package]]
 name = "google-api-core"
-version = "2.8.2"
+version = "2.10.0"
 description = "Google API client core library"
 category = "main"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=3.7"
 
 [package.dependencies]
 google-auth = ">=1.25.0,<3.0dev"
 googleapis-common-protos = ">=1.56.2,<2.0dev"
 grpcio = {version = ">=1.33.2,<2.0dev", optional = true, markers = "extra == \"grpc\""}
 grpcio-status = {version = ">=1.33.2,<2.0dev", optional = true, markers = "extra == \"grpc\""}
-protobuf = ">=3.15.0,<5.0.0dev"
+protobuf = ">=3.20.1,<5.0.0dev"
 requests = ">=2.18.0,<3.0.0dev"
 
 [package.extras]
 grpc = ["grpcio (>=1.33.2,<2.0dev)", "grpcio-status (>=1.33.2,<2.0dev)"]
+grpcgcp = ["grpcio-gcp (>=0.2.2,<1.0dev)"]
+grpcio-gcp = ["grpcio-gcp (>=0.2.2,<1.0dev)"]
 
 [[package]]
 name = "google-auth"
@@ -1193,7 +1203,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "326c5778b6e4789f0644d5cf9f93448a7c05572a49f78b7bf9ec974159dd40e8"
+content-hash = "9f7c57055d51783ce7c1069c1252709a36fbde6231413b6aaa749ec1b0835afb"
 
 [metadata.files]
 aiohttp = [
@@ -1245,6 +1255,7 @@ async-timeout = [
 ]
 atomicwrites = []
 attrs = []
+backoff = []
 "backports.zoneinfo" = [
     {file = "backports.zoneinfo-0.2.1-cp36-cp36m-macosx_10_14_x86_64.whl", hash = "sha256:da6013fd84a690242c310d77ddb8441a559e9cb3d3d59ebac9aca1a57b2e18bc"},
     {file = "backports.zoneinfo-0.2.1-cp36-cp36m-manylinux1_i686.whl", hash = "sha256:89a48c0d158a3cc3f654da4c2de1ceba85263fafb861b98b59040a5086259722"},

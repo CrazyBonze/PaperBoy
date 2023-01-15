@@ -1,0 +1,21 @@
+version: '3.9'
+
+services:
+  selenium:
+    image: selenium/standalone-chrome
+    shm_size: 2gb
+    ports:
+      - "4444:4444"
+      - "7900:7900"
+  paperboy:
+    build:
+      context: .
+      dockerfile: ./deploy/Dockerfile
+        #image: photobomb:${PHOTOBOMB_VERSION:-latest}
+    restart: unless-stopped
+    volumes:
+      - ./key.json:/key.json
+      - ./articles:/app/src/articles
+      - ./db.sqlite:/app/src/db.sqlite
+    env_file:
+      - .env

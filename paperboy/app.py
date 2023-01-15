@@ -14,7 +14,7 @@ from datetime import datetime
 import os
 from pydantic import BaseSettings
 from selenium import webdriver
-import chromedriver_autoinstaller
+#import chromedriver_autoinstaller
 from selenium.webdriver.chrome.options import Options
 import google.cloud.texttospeech as tts
 from datetime import timedelta
@@ -25,8 +25,12 @@ import tempfile
 from courlan import check_url
 import validators
 import backoff
+import nltk
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/home/michael/paperboy/key.json"
+nltk.download('punkt')
+
+#os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/home/michael/PaperBoy/key.json"
+SELENIUM_URL = "http://selenium:4444/wd/hub"
 
 
 async def text_to_speech(filename: str, chunked_text: [str]):
@@ -49,8 +53,10 @@ async def text_to_speech(filename: str, chunked_text: [str]):
         concat_clip.write_audiofile(filename)
 
 
-chromedriver_autoinstaller.install()
+#chromedriver_autoinstaller.install()
 chrome_options = Options()
+chrome_options.add_argument('--no-sandbox')
+chrome_options.add_argument('--disable-gpu')
 chrome_options.add_argument("--headless")
 chrome_options.add_argument("--window-size=1920x1080")
 
@@ -134,7 +140,7 @@ async def rm(ctx, url):
 
 @bot.command(name="paywall", description="Add or remove paywall.")
 async def paywall(ctx, url):
-    """Turn onn and off paywall diversion."""
+    """Turn on and off paywall diversion."""
     url_parsed = urlparse(url)
     domain = str(url_parsed.netloc) or url
     if domain not in db:
@@ -148,7 +154,7 @@ async def paywall(ctx, url):
 
 @bot.command(name="whitelist", description="Add or remove whitelist.")
 async def whitelist(ctx, url):
-    """Turn onn and off paywall diversion."""
+    """Add or remove a domain from the whitelist."""
     url_parsed = urlparse(url)
     domain = str(url_parsed.netloc) or url
     if domain not in db:
@@ -209,14 +215,14 @@ async def get_source(url):
     def scrape(url):
         source = None
         if divert_paywall(url):
-            driver = webdriver.Chrome(options=chrome_options)
+            driver = webdriver.Remote(SELENIUM_URL, options=chrome_options)
             driver.implicitly_wait(10)
             driver.get(f"https://12ft.io/{url}")
             driver.switch_to.frame(driver.find_element("xpath", "//iframe[1]"))
             source = driver.page_source
             driver.quit()
         else:
-            driver = webdriver.Chrome(options=chrome_options)
+            driver = webdriver.Remote(SELENIUM_URL, options=chrome_options)
             driver.implicitly_wait(10)
             driver.get(url)
             source = driver.page_source

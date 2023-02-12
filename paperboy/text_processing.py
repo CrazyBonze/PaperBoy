@@ -6,7 +6,7 @@ wrapper.fix_sentence_endings = True
 wrapper.break_long_words = False
 wrapper.break_on_hyphens = False
 
-MAX_CHUNK = 5000
+MAX_CHUNK = 4900
 
 async def process_text(text):
     formatted = []

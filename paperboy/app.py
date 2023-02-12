@@ -57,8 +57,10 @@ async def text_to_speech(filename: str, chunked_text: [str]):
 chrome_options = Options()
 chrome_options.add_argument('--no-sandbox')
 chrome_options.add_argument('--disable-gpu')
-chrome_options.add_argument("--headless")
+#chrome_options.add_argument("--headless")
 chrome_options.add_argument("--window-size=1920x1080")
+chrome_options.add_argument('--ignore-ssl-errors=yes')
+chrome_options.add_argument('--ignore-certificate-errors')
 
 
 class Settings(BaseSettings):
@@ -215,18 +217,18 @@ async def get_source(url):
     def scrape(url):
         source = None
         if divert_paywall(url):
-            driver = webdriver.Remote(SELENIUM_URL, options=chrome_options)
-            driver.implicitly_wait(10)
-            driver.get(f"https://12ft.io/{url}")
-            driver.switch_to.frame(driver.find_element("xpath", "//iframe[1]"))
-            source = driver.page_source
-            driver.quit()
-        else:
+            # Old way of diverting paywalls
+            # driver = webdriver.Remote(SELENIUM_URL, options=chrome_options)
+            # driver.implicitly_wait(10)
+            # driver.get(f"https://12ft.io/{url}")
+            # driver.switch_to.frame(driver.find_element("xpath", "//iframe[1]"))
             driver = webdriver.Remote(SELENIUM_URL, options=chrome_options)
             driver.implicitly_wait(10)
             driver.get(url)
             source = driver.page_source
             driver.quit()
+        else:
+            source = trafilatura.fetch_url(url)
         return source
 
     loop = asyncio.get_running_loop()
@@ -286,6 +288,9 @@ async def process_article(url, message):
             ),
         )
         chunked_text = await process_text(article["text"])
+        with open(f"./articles/{text_file_name}", "w") as txt:
+            for chunk in chunked_text:
+                txt.write(chunk)
         await text_to_speech(f"./articles/{audio_file_name}", chunked_text)
 
         print("running video conversion")
@@ -295,9 +300,6 @@ async def process_article(url, message):
             ),
         )
         video_file_name, video_length = await color_clip(f"./articles/{audio_file_name}")
-        with open(f"./articles/{text_file_name}", "w") as txt:
-            for chunk in chunked_text:
-                txt.write(chunk)
         meta = f"By: __{article['author']}__ published: *{article['date']}*"
 
         print("uploading article to discord")
@@ -380,4 +382,5 @@ async def on_message(message):
 
 
 if __name__ == "__main__":
+    print("Running bot")
     bot.run(settings.token)  # , log_handler=handler)

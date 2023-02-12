@@ -2,16 +2,21 @@ version: '3.9'
 
 services:
   selenium:
-    image: selenium/standalone-chrome
+    build:
+      context: .
+      dockerfile: ./deploy/Dockerfile.selenium
+    privileged: true
     shm_size: 2gb
+    restart: unless-stopped
     # Ports if needed outside of docker stack
-    # ports:
+    ports:
+       - "7900:7900"
     #   - "4444:4444"
-    #   - "7900:7900"
   paperboy:
     build:
       context: .
       dockerfile: ./deploy/Dockerfile
+    shm_size: 2gb
     restart: unless-stopped
     volumes:
       - ./key.json:/key.json

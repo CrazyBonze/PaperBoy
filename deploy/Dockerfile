@@ -1,20 +1,22 @@
 FROM python:3.10
 
-
-#RUN curl -sSL https://install.python-poetry.org | python -
+# Install poetry package manager
 RUN pip install poetry
-# Configuring poetry
+
+# Configure poetry to not create virtual environments
 RUN poetry config virtualenvs.create false
 
-# Copying requirements of a project
+# Copy project dependencies
 COPY pyproject.toml poetry.lock /app/src/
+
+# Set working directory
 WORKDIR /app/src
 
-
-# Installing requirements
+# Install project dependencies
 RUN poetry install
 
-# Copying actuall application
+# Copy application code
 COPY . /app/src/
 
+# Run application
 CMD ["poetry", "run", "python", "paperboy"]

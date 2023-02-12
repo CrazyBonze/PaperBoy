@@ -1,0 +1,15 @@
+FROM selenium/standalone-chrome
+
+USER root
+
+RUN curl -O https://gitlab.com/magnolia1234/bypass-paywalls-chrome-clean/-/archive/master/bypass-paywalls-chrome-clean-master.zip
+
+RUN unzip bypass-paywalls-chrome-clean-master.zip
+
+RUN mkdir /etc/opt/chrome
+RUN mkdir /etc/opt/chrome/policies
+RUN mkdir /etc/opt/chrome/policies/managed
+
+COPY managed_policies.json /etc/opt/chrome/policies/managed/managed_policies.json
+
+USER seluser

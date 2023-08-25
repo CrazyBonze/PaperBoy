@@ -6,12 +6,12 @@ authors = ["Michael Taylor <90michaeltaylor@gmail.com>"]
 
 [tool.taskipy.tasks]
 app = "python paperboy/app.py"
+dev = {cmd="docker compose --profile selenium -f deploy/docker-compose.yml --project-directory . up --build "}
 run = {cmd="docker compose -f deploy/docker-compose.yml --project-directory . up --build"}
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.8.3"
 gTTS = "^2.2.4"
-"discord.py" = "^1.7.3"
 python-slugify = "^6.1.2"
 urlextract = "^1.6.0"
 sqlitedict = "^2.0.0"
@@ -27,6 +27,11 @@ tld = "^0.12.6"
 validators = "^0.20.0"
 backoff = "^2.1.2"
 six = "^1.16.0"
+chromadb = "^0.4.7"
+langchain = "^0.0.272"
+discord-py = "^2.3.2"
+youtube-transcript-api = "^0.6.1"
+pytube = "^15.0.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"

@@ -10,8 +10,11 @@ services:
     restart: unless-stopped
     # Ports if needed outside of docker stack
     ports:
-       - "7900:7900"
-    #   - "4444:4444"
+      - "7900:7900"
+      - "4444:4444"
+    profiles:
+      - selenium
+
   paperboy:
     build:
       context: .
@@ -24,3 +27,5 @@ services:
       - ./db.sqlite:/app/src/db.sqlite
     env_file:
       - .env
+    profiles:
+      - app

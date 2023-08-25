@@ -81,6 +81,7 @@ chrome_options.add_argument("--disable-gpu")
 chrome_options.add_argument("--window-size=1920x1080")
 chrome_options.add_argument("--ignore-ssl-errors=yes")
 chrome_options.add_argument("--ignore-certificate-errors")
+chrome_options.add_argument("--user-data-dir=/tmp/chrome")
 
 
 class Settings(BaseSettings):

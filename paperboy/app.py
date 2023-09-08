@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import tempfile
 import time
 from asyncio import TimeoutError
@@ -16,14 +17,14 @@ import trafilatura
 import validators
 from aiohttp.client_exceptions import ClientOSError
 from courlan import check_url
+from discord import CustomActivity
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from gtts import gTTS
+from loguru import logger
 from moviepy.editor import AudioFileClip, ColorClip, ImageClip, concatenate_audioclips
 from pydantic import BaseSettings
 from selenium import webdriver
-
-# import chromedriver_autoinstaller
 from selenium.webdriver.chrome.options import Options
 from slugify import slugify
 from sqlitedict import SqliteDict
@@ -32,14 +33,19 @@ from text_processing import format_article, process_text
 from urlextract import URLExtract
 from youtube_transcript import get_transcript, get_youtube_video_id
 
+
+class InterceptHandler(logging.Handler):
+    def emit(self, record):
+        logger_opt = logger.opt(depth=4, exception=record.exc_info)
+        logger_opt.log(record.levelname, record.getMessage())
+
+
+logging.basicConfig(handlers=[InterceptHandler()], level=logging.INFO)
+
 directory = Path("./articles")
 directory.mkdir(parents=True, exist_ok=True)
 nltk.download("punkt")
 load_dotenv()
-
-# os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/home/michael/PaperBoy/key.json"
-SELENIUM_URL = "http://selenium:4444/wd/hub"
-SELENIUM_URL = "http://localhost:4444/wd/hub"
 
 
 async def write_audio_to_tempfile(i, text, tmp_dir, voice_params, audio_config, client):
@@ -85,9 +91,11 @@ chrome_options.add_argument("--user-data-dir=/tmp/chrome")
 
 
 class Settings(BaseSettings):
-    token = ""
+    token: str = ""
     guild = int
     channels = [int]
+    message_lifetime: int = 60  # Default to 60 seconds or 1 minute
+    selenium_url: str = "http://selenium:4444/wd/hub"
 
     class Config:
         env_file = ".env"
@@ -103,20 +111,24 @@ bot = commands.Bot(
     command_prefix="$", description="Reads news articles.", intents=intents
 )
 
-status = cycle(["run $help for more"])
 
-USER_AGENT = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:78.0) Gecko/20100101 Firefox/78.0"
+activities = cycle(
+    [
+        CustomActivity(name="Run $help for more"),
+        CustomActivity(name="Reading the news"),
+        CustomActivity(name="Run $help for more"),
+        CustomActivity(name="Drinking tea"),
+        CustomActivity(name="Run $help for more"),
+        CustomActivity(name="Taking a nap"),
+    ]
 )
 
 
-@tasks.loop(seconds=15)
+@tasks.loop(seconds=60)
 async def changeStatus():
     await bot.change_presence(
         status=discord.Status.idle,
-        activity=discord.Activity(
-            type=discord.ActivityType.watching, name=next(status)
-        ),
+        activity=next(activities),
     )
 
 
@@ -136,20 +148,19 @@ async def send_paged_message(ctx, content_list, page_size=20):
         else:
             page_content = ""
         page_content += "```" + "".join(page) + "```"
-        await ctx.send(page_content)
+        msg = await ctx.send(page_content)
+        await msg.delete(delay=settings.message_lifetime)
         await asyncio.sleep(0.25)
 
 
 def build_table(db):
     max_domain_length = max(len(netloc) for netloc in db.keys())
-    spacing = max(20, max_domain_length + 2)  # 2 extra spaces for padding
+    spacing = max(20, max_domain_length)
 
-    header = "{:<{spacing}} {:<10} {:<10} {:<10}\n".format(
-        "Domain", "Count", "Enabled", "Paywall", spacing=spacing
+    header = "{:<{spacing}} {:<4}{:<4}{:<4}\n".format(
+        "URL", "#️⃣", "✅/❌", "🔒", spacing=spacing
     )
-    separator = (
-        "-" * (spacing + 33) + "\n"
-    )  # 33 = 10 for "Count" + 10 for "Enabled" + 10 for "Paywall" + 3 for spaces
+    separator = "-" * (spacing + 13) + "\n"
 
     content_list = [header, separator]
 
@@ -157,7 +168,7 @@ def build_table(db):
         count = value.get("count", 0)
         enabled = "✅" if value["whitelist"] else "❌"
         paywall = "✅" if value["paywall"] else "❌"
-        line = "{:<{spacing}} {:<10} {:<10} {:<10}\n".format(
+        line = "{:<{spacing}} {:<4}{:<4}{:<4}\n".format(
             netloc, count, enabled, paywall, spacing=spacing
         )
         content_list.append(line)
@@ -169,6 +180,7 @@ async def all(ctx):
     """List all domains in the database"""
     content_list = build_table(db)
     await send_paged_message(ctx, content_list)
+    await ctx.message.delete(delay=settings.message_lifetime)
 
 
 @_list.command(name="add")
@@ -177,9 +189,11 @@ async def add(ctx, url):
     url_parsed = urlparse(url)
     domain = str(url_parsed.netloc) or url
     if validators.domain(domain) is not True:
-        await ctx.send(
+        msg = await ctx.send(
             f"❗ **Invalid Domain:** Couldn't find a valid domain in `{url}`."
         )
+        await msg.delete(delay=settings.message_lifetime)
+        await ctx.message.delete(delay=settings.message_lifetime)
         return
 
     if domain not in db:
@@ -189,11 +203,15 @@ async def add(ctx, url):
         msg = f"**New Entry Added:**\n```"
         msg += "".join(content_list)
         msg += "```"
-        await ctx.send(msg)
+        msg = await ctx.send(msg)
+        await msg.delete(delay=settings.message_lifetime)
+        await ctx.message.delete(delay=settings.message_lifetime)
         return
-    await ctx.send(
+    msg = await ctx.send(
         f"🛑 **Domain Already Exists:** `{domain}` is already in the database."
     )
+    await msg.delete(delay=settings.message_lifetime)
+    await ctx.message.delete(delay=settings.message_lifetime)
 
 
 @_list.command(name="rm")
@@ -203,13 +221,20 @@ async def rm(ctx, url):
     domain = str(url_parsed.netloc) or url
 
     if domain not in db:
-        await ctx.send(f"❗ **Domain Not Found:** `{domain}` is not in the database.")
+        msg = await ctx.send(
+            f"❗ **Domain Not Found:** `{domain}` is not in the database."
+        )
+        await msg.delete(delay=settings.message_lifetime)
+        await ctx.message.delete(delay=settings.message_lifetime)
         return
 
     del db[domain]
 
-    msg = f"🗑️ **Domain Removed:** `{domain}` has been removed from the database."
-    await ctx.send(msg)
+    msg = await ctx.send(
+        f"🗑️ **Domain Removed:** `{domain}` has been removed from the database."
+    )
+    await msg.delete(delay=settings.message_lifetime)
+    await ctx.message.delete(delay=settings.message_lifetime)
 
 
 @bot.command(name="paywall", description="Add or remove paywall.")
@@ -219,7 +244,11 @@ async def paywall(ctx, url):
     domain = str(url_parsed.netloc) or url
 
     if domain not in db:
-        await ctx.send(f"❗ **Domain Not Found:** `{domain}` is not in the database.")
+        msg = await ctx.send(
+            f"❗ **Domain Not Found:** `{domain}` is not in the database."
+        )
+        await msg.delete(delay=settings.message_lifetime)
+        await ctx.message.delete(delay=settings.message_lifetime)
         return
 
     url_profile = db[domain]
@@ -228,11 +257,13 @@ async def paywall(ctx, url):
 
     single_entry_db = {domain: db[domain]}
     content_list = build_table(single_entry_db)
-    msg = f"🔄 **Paywall Toggled for:** `{domain}`\n```"
-    msg += "".join(content_list)
-    msg += "```"
+    msg_content = f"🔄 **Paywall Toggled for:** `{domain}`\n```"
+    msg_content += "".join(content_list)
+    msg_content += "```"
 
-    await ctx.send(msg)
+    msg = await ctx.send(msg_content)
+    await msg.delete(delay=settings.message_lifetime)
+    await ctx.message.delete(delay=settings.message_lifetime)
 
 
 @bot.command(name="whitelist", description="Add or remove whitelist.")
@@ -242,7 +273,11 @@ async def whitelist(ctx, url):
     domain = str(url_parsed.netloc) or url
 
     if domain not in db:
-        await ctx.send(f"❗ **Domain Not Found:** `{domain}` is not in the database.")
+        msg = await ctx.send(
+            f"❗ **Domain Not Found:** `{domain}` is not in the database."
+        )
+        await msg.delete(delay=settings.message_lifetime)
+        await ctx.message.delete(delay=settings.message_lifetime)
         return
 
     url_profile = db[domain]
@@ -251,11 +286,13 @@ async def whitelist(ctx, url):
 
     single_entry_db = {domain: db[domain]}
     content_list = build_table(single_entry_db)
-    msg = f"🔄 **Whitelist Toggled for:** `{domain}`\n```"
-    msg += "".join(content_list)
-    msg += "```"
+    msg_content = f"🔄 **Whitelist Toggled for:** `{domain}`\n```"
+    msg_content += "".join(content_list)
+    msg_content += "```"
 
-    await ctx.send(msg)
+    msg = await ctx.send(msg_content)
+    await msg.delete(delay=settings.message_lifetime)
+    await ctx.message.delete(delay=settings.message_lifetime)
 
 
 @bot.command(name="ping", description="Check response.")
@@ -266,7 +303,7 @@ async def ping(ctx, num_trials: int = 5):
             "❗ **Invalid Input:** Number of trials must be between 1 and 20."
         )
         return
-    print("ping pong")
+    logger.info("ping pong")
 
     # Set the header
     header = f"🏓 **Ping Diagnostics:**\n"
@@ -308,6 +345,8 @@ async def ping(ctx, num_trials: int = 5):
     # Edit the message to add final statistics
     full_msg = header + f"```{msg}```"
     await message.edit(content=full_msg)
+    await message.delete(delay=settings.message_lifetime)
+    await ctx.message.delete(delay=settings.message_lifetime)
 
 
 @bot.event
@@ -316,7 +355,7 @@ async def on_ready():
         if guild.id == settings.guild:
             break
     changeStatus.start()
-    print(
+    logger.info(
         f"{bot.user} is connected to the following guild:\n"
         f"{guild.name}(id: {guild.id})"
     )
@@ -325,9 +364,9 @@ async def on_ready():
 async def color_clip(audio):
     def make_video(audio):
         filename = f"{audio.replace('.mp3', '.webm')}"
-        size = (200, 100)
         audioclip = AudioFileClip(audio)
         clip = ImageClip("cat_paper.jpg", duration=audioclip.duration + 0.1)
+        # size = (200, 100)
         # clip = ColorClip(size, color=(0, 0, 0), duration=audioclip.duration + 0.1)
         videoclip = clip.set_audio(audioclip)
         videoclip.write_videofile(
@@ -352,12 +391,14 @@ async def get_source(url):
     def scrape(url):
         source = None
         if divert_paywall(url):
-            driver = webdriver.Remote(SELENIUM_URL, options=chrome_options)
+            logger.info(f"Diverting paywall for url: {url}")
+            driver = webdriver.Remote(settings.selenium_url, options=chrome_options)
             driver.implicitly_wait(10)
             driver.get(url)
             source = driver.page_source
             driver.quit()
         else:
+            logger.info(f"Fetching source for url: {url}")
             source = trafilatura.fetch_url(url)
         return source
 
@@ -377,7 +418,7 @@ async def get_article(source, url):
 
 
 async def backoff_hdlr(details):
-    print(
+    logger.info(
         "Backing off {wait:0.1f} seconds after {tries} tries "
         "calling function {target} with args {args} and kwargs "
         "{kwargs}".format(**details)
@@ -398,83 +439,120 @@ async def upload_message(text, video_file_name, text_file_name, reference):
     )
 
 
+def srt_to_doc(srt_file):
+    text = ""
+    for index, item in enumerate(srt_file):
+        ##print(item.text)
+        if item.text.startswith("["):
+            continue
+        text += "(%d) " % index
+        text += (
+            item.text.replace("\n", "")
+            .strip("...")
+            .replace(".", "")
+            .replace("?", "")
+            .replace("!", "")
+        )
+        text += ". "
+    return text
+
+
 async def process_youtube(url, message):
     await message.add_reaction("📰")
     async with message.channel.typing():
+        await bot.change_presence(activity=CustomActivity(name="Copying transcript 📝"))
         video_id = get_youtube_video_id(url)
         text_file_name = f"./articles/{video_id}.txt"
-        transcript = await get_transcript(video_id)
-        summary = await summarize(transcript)
+        srt_file_name = f"./articles/{video_id}.srt"
+        from youtube_transcript import youtube_to_text
+
+        subtitle = await youtube_to_text(url)
+
         yt_video = pytube.YouTube(url=url)
+        summary = await summarize(subtitle["text"])
+        print(summary)
         with open(text_file_name, "w") as txt:
-            author = f"By: {yt_video.author}"
-            date = f"Published: {yt_video.publish_date}"
-            txt.write(f"{yt_video.title}\n\n{transcript}\n{author}\n{date}")
+            txt.write(
+                await format_article(
+                    title=yt_video.title,
+                    text=subtitle["text"],
+                    author=yt_video.author,
+                    date=yt_video.publish_date,
+                )
+            )
+        with open(srt_file_name, "w") as srt:
+            srt.write(subtitle["srt"])
+        await bot.change_presence(
+            activity=CustomActivity(name="Uploading transcript 💾")
+        )
+        author = f"By: {yt_video.author}"
+        date = f"Published: {yt_video.publish_date}"
         await message.channel.send(
             f"> **SUMMARY: {yt_video.title}**\n> {summary}\n{author} {date}",
             files=[discord.File(text_file_name)],
             reference=message,
         )
+        await bot.change_presence(activity=CustomActivity(name="Finished 👍"))
 
 
 async def process_article(url, message):
     await message.add_reaction("📰")
     async with message.channel.typing():
-        print("downlowding article")
+        logger.info("downlowding article")
         await bot.change_presence(
-            activity=discord.Activity(
-                type=discord.ActivityType.playing, name="Reading article 📖"
-            ),
+            activity=CustomActivity(name="Reading article 📖"),
         )
         # Divert paywall
         source = await get_source(url)
 
-        print("parsing article")
+        logger.info("parsing article")
         article = await get_article(source, url)
         audio_file_name = f"{slugify(article['title'])}.mp3"
         text_file_name = f"{slugify(article['title'])}.txt"
 
-        print("running nlp on article")
+        logger.info("running nlp on article")
         summary = await summarize(article["text"])
 
-        print("running text to speech")
+        logger.info("running text to speech")
         await bot.change_presence(
-            activity=discord.Activity(
-                type=discord.ActivityType.playing, name="Recording article 🎙️"
-            ),
+            activity=CustomActivity(name="Recording article 🎙️"),
         )
         chunked_text = await process_text(article["text"])
         article_file_name = f"./articles/{text_file_name}"
         with open(article_file_name, "w") as txt:
-            txt.write(await format_article(article=article, width=120))
+            txt.write(
+                await format_article(
+                    title=article["title"],
+                    text=article["text"],
+                    author=article["author"],
+                    date=article["date"],
+                )
+            )
         await text_to_speech(f"./articles/{audio_file_name}", chunked_text)
 
-        print("running video conversion")
-        await bot.change_presence(
-            activity=discord.Activity(
-                type=discord.ActivityType.playing, name="Creating video 📼"
-            ),
-        )
+        logger.info("running video conversion")
+        await bot.change_presence(activity=CustomActivity(name="Creating video 📼"))
         video_file_name, video_length = await color_clip(
             f"./articles/{audio_file_name}"
         )
         meta = f"By: __{article['author']}__ published: *{article['date']}*"
 
-        print("uploading article to discord")
+        logger.info("uploading article to discord")
         await bot.change_presence(
-            activity=discord.Activity(
-                type=discord.ActivityType.playing, name="Uploading"
-            ),
+            activity=CustomActivity(name="Uploading article 💾"),
         )
 
-        print(f"upload attempt")
+        logger.info(f"upload attempt")
         await upload_message(
             f"> **SUMMARY: {article['title']}**\n> {summary}\n> {meta}\n`length {str(video_length).split('.')[0]}`",
             video_file_name,
             article_file_name,
             message,
         )
-        print("finished")
+        logger.info("finished")
+        await bot.change_presence(
+            activity=CustomActivity(name="Finished 👍"),
+        )
 
 
 async def handle_unknown_domain(url_parsed, message):
@@ -517,6 +595,7 @@ async def handle_known_domain(url_parsed, message):
     url_profile = db[url_parsed.netloc]
 
     url = str(url_parsed.geturl())
+    print(url_parsed.netloc, url_profile)
     if url_profile["whitelist"]:
         if url_parsed.netloc in [
             "www.youtube.com",
@@ -550,7 +629,7 @@ async def on_message(message):
         await bot.process_commands(message)
         return
 
-    print(f"Message {user_message} by {username} on {channel}")
+    logger.info(f"Message {user_message} by {username} on {channel}")
 
     extractor = URLExtract()
     urls = extractor.find_urls(user_message)
@@ -568,5 +647,5 @@ async def on_message(message):
 
 
 if __name__ == "__main__":
-    print("Running bot")
+    logger.info("Running bot")
     bot.run(settings.token)  # , log_handler=handler)

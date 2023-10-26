@@ -517,6 +517,7 @@ async def process_article(url, message):
         await message.channel.send(
             f"> **SUMMARY: {article['title']}**\n> {summary}\n> {meta}",
             files=[discord.File(article_file_path)],
+            reference=message,
         )
 
         # Process video
@@ -535,8 +536,12 @@ async def process_article(url, message):
         )
 
         # Edit the original message to add the video
-        meta = f"**{article['title']}**\n`length {str(video_length).split('.')[0]}`"
-        await message.channel.send(content=meta, files=[discord.File(video_file_name)])
+        meta = f"> **VIDEO: {article['title']}**\n> `length {str(video_length).split('.')[0]}`"
+        await message.channel.send(
+            content=meta,
+            files=[discord.File(video_file_name)],
+            reference=message,
+        )
 
         logger.info("finished")
         await bot.change_presence(

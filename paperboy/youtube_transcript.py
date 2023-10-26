@@ -12,7 +12,7 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import TextFormatter
 
 # Load Whisper model
-model = whisper.load_model("base")
+model = whisper.load_model("small.en")
 
 
 def get_youtube_video_id(url):
@@ -98,10 +98,14 @@ async def youtube_to_text(url):
         audio_stream.download(filename=temp_audio.name)
 
         # Transcribe audio file asynchronously
-        result = await asyncio.to_thread(model.transcribe, temp_audio.name)
-
+        result = await asyncio.to_thread(model.transcribe, audio=temp_audio.name)
         # Return transcript text
-        return {"srt": generate_srt(result["segments"]), "text": result["text"]}
+        return {
+            # "srt": generate_srt([s._asdict() for s in result]),
+            # "text": " ".join([s.text for s in result]),
+            "srt": generate_srt(result["segments"]),
+            "text": result["text"],
+        }
         # return result["text"]
 
 

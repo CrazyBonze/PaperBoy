@@ -36,6 +36,7 @@ loguru = "^0.7.0"
 pysrt = "^1.1.2"
 openai-whisper = "^20230314"
 torch = "2.0.0"
+openai = "^0.28.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"

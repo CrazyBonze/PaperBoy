@@ -26,12 +26,14 @@ from moviepy.editor import AudioFileClip, ColorClip, ImageClip, concatenate_audi
 from pydantic import BaseSettings
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from settings import settings
 from slugify import slugify
 from sqlitedict import SqliteDict
-from summerizer import summarize
+from summerizer import new_summarize, summarize
+from system_message import system_message
 from text_processing import format_article, process_text
 from urlextract import URLExtract
-from youtube_transcript import get_transcript, get_youtube_video_id
+from youtube_transcript import get_transcript, get_youtube_video_id, youtube_to_text
 
 
 class InterceptHandler(logging.Handler):
@@ -90,19 +92,7 @@ chrome_options.add_argument("--ignore-certificate-errors")
 chrome_options.add_argument("--user-data-dir=/tmp/chrome")
 
 
-class Settings(BaseSettings):
-    token: str = ""
-    guild = int
-    channels = [int]
-    message_lifetime: int = 60  # Default to 60 seconds or 1 minute
-    selenium_url: str = "http://selenium:4444/wd/hub"
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
-
-settings = Settings()
+# settings = Settings()
 
 db = SqliteDict("db.sqlite", autocommit=True)
 
@@ -464,13 +454,11 @@ async def process_youtube(url, message):
         video_id = get_youtube_video_id(url)
         text_file_name = f"./articles/{video_id}.txt"
         srt_file_name = f"./articles/{video_id}.srt"
-        from youtube_transcript import youtube_to_text
 
         subtitle = await youtube_to_text(url)
 
         yt_video = pytube.YouTube(url=url)
-        summary = await summarize(subtitle["text"])
-        print(summary)
+        summary = await new_summarize(subtitle["text"])
         with open(text_file_name, "w") as txt:
             txt.write(
                 await format_article(
@@ -486,9 +474,9 @@ async def process_youtube(url, message):
             activity=CustomActivity(name="Uploading transcript 💾")
         )
         author = f"By: {yt_video.author}"
-        date = f"Published: {yt_video.publish_date}"
+        date = f"Published: {yt_video.publish_date.strftime('%Y-%m-%d')}"
         await message.channel.send(
-            f"> **SUMMARY: {yt_video.title}**\n> {summary}\n{author} {date}",
+            f"> **SUMMARY: {yt_video.title}**\n> {summary}\n> {author} {date}",
             files=[discord.File(text_file_name)],
             reference=message,
         )
@@ -498,28 +486,23 @@ async def process_youtube(url, message):
 async def process_article(url, message):
     await message.add_reaction("📰")
     async with message.channel.typing():
-        logger.info("downlowding article")
+        logger.info("downloading article")
         await bot.change_presence(
-            activity=CustomActivity(name="Reading article 📖"),
+            activity=discord.Game(name="Reading article 📖"),
         )
         # Divert paywall
         source = await get_source(url)
 
         logger.info("parsing article")
         article = await get_article(source, url)
-        audio_file_name = f"{slugify(article['title'])}.mp3"
         text_file_name = f"{slugify(article['title'])}.txt"
 
         logger.info("running nlp on article")
-        summary = await summarize(article["text"])
+        summary = await new_summarize(article["text"])
 
-        logger.info("running text to speech")
-        await bot.change_presence(
-            activity=CustomActivity(name="Recording article 🎙️"),
-        )
-        chunked_text = await process_text(article["text"])
-        article_file_name = f"./articles/{text_file_name}"
-        with open(article_file_name, "w") as txt:
+        # Save article text to file
+        article_file_path = f"./articles/{text_file_name}"
+        with open(article_file_path, "w") as txt:
             txt.write(
                 await format_article(
                     title=article["title"],
@@ -528,31 +511,97 @@ async def process_article(url, message):
                     date=article["date"],
                 )
             )
+
+        # Upload summary and article text to Discord
+        meta = f"By: __{article['author']}__ published: *{article['date']}*"
+        await message.channel.send(
+            f"> **SUMMARY: {article['title']}**\n> {summary}\n> {meta}",
+            files=[discord.File(article_file_path)],
+        )
+
+        # Process video
+        logger.info("running text to speech")
+        await bot.change_presence(
+            activity=discord.Game(name="Recording article 🎙️"),
+        )
+        audio_file_name = f"{slugify(article['title'])}.mp3"
+        chunked_text = await process_text(article["text"])
         await text_to_speech(f"./articles/{audio_file_name}", chunked_text)
 
         logger.info("running video conversion")
-        await bot.change_presence(activity=CustomActivity(name="Creating video 📼"))
+        await bot.change_presence(activity=discord.Game(name="Creating video 📼"))
         video_file_name, video_length = await color_clip(
             f"./articles/{audio_file_name}"
         )
-        meta = f"By: __{article['author']}__ published: *{article['date']}*"
 
-        logger.info("uploading article to discord")
-        await bot.change_presence(
-            activity=CustomActivity(name="Uploading article 💾"),
-        )
+        # Edit the original message to add the video
+        meta = f"**{article['title']}**\n`length {str(video_length).split('.')[0]}`"
+        await message.channel.send(content=meta, files=[discord.File(video_file_name)])
 
-        logger.info(f"upload attempt")
-        await upload_message(
-            f"> **SUMMARY: {article['title']}**\n> {summary}\n> {meta}\n`length {str(video_length).split('.')[0]}`",
-            video_file_name,
-            article_file_name,
-            message,
-        )
         logger.info("finished")
         await bot.change_presence(
-            activity=CustomActivity(name="Finished 👍"),
+            activity=discord.Game(name="Finished 👍"),
         )
+
+
+# async def process_article(url, message):
+#     await message.add_reaction("📰")
+#     async with message.channel.typing():
+#         logger.info("downlowding article")
+#         await bot.change_presence(
+#             activity=CustomActivity(name="Reading article 📖"),
+#         )
+#         # Divert paywall
+#         source = await get_source(url)
+#
+#         logger.info("parsing article")
+#         article = await get_article(source, url)
+#         audio_file_name = f"{slugify(article['title'])}.mp3"
+#         text_file_name = f"{slugify(article['title'])}.txt"
+#
+#         logger.info("running nlp on article")
+#         summary = await new_summarize(article["text"])
+#
+#         logger.info("running text to speech")
+#         await bot.change_presence(
+#             activity=CustomActivity(name="Recording article 🎙️"),
+#         )
+#         chunked_text = await process_text(article["text"])
+#         article_file_name = f"./articles/{text_file_name}"
+#         with open(article_file_name, "w") as txt:
+#             txt.write(
+#                 await format_article(
+#                     title=article["title"],
+#                     text=article["text"],
+#                     author=article["author"],
+#                     date=article["date"],
+#                 )
+#             )
+#         await text_to_speech(f"./articles/{audio_file_name}", chunked_text)
+#
+#         logger.info("running video conversion")
+#         await bot.change_presence(activity=CustomActivity(name="Creating video 📼"))
+#         video_file_name, video_length = await color_clip(
+#             f"./articles/{audio_file_name}"
+#         )
+#         meta = f"By: __{article['author']}__ published: *{article['date']}*"
+#
+#         logger.info("uploading article to discord")
+#         await bot.change_presence(
+#             activity=CustomActivity(name="Uploading article 💾"),
+#         )
+#
+#         logger.info(f"upload attempt")
+#         await upload_message(
+#             f"> **SUMMARY: {article['title']}**\n> {summary}\n> {meta}\n`length {str(video_length).split('.')[0]}`",
+#             video_file_name,
+#             article_file_name,
+#             message,
+#         )
+#         logger.info("finished")
+#         await bot.change_presence(
+#             activity=CustomActivity(name="Finished 👍"),
+#         )
 
 
 async def handle_unknown_domain(url_parsed, message):

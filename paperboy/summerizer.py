@@ -1,7 +1,9 @@
 import asyncio
 from textwrap import shorten
 
+import openai
 import pysrt
+from settings import settings
 from sumy.nlp.stemmers import Stemmer
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.parsers.plaintext import PlaintextParser
@@ -10,6 +12,23 @@ from sumy.utils import get_stop_words
 
 LANGUAGE = "english"
 SENTENCES_COUNT = 5
+
+
+async def new_summarize(text):
+    openai.api_key = settings.openai_api_key
+    messages = [
+        {"role": "system", "content": settings.system_message},
+        {"role": "user", "content": text},
+    ]
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(
+        None,
+        lambda: openai.ChatCompletion.create(
+            model=settings.openai_model, messages=messages
+        ),
+    )
+    ai_message = response["choices"][0]["message"]["content"]
+    return ai_message
 
 
 def _summarize(text, sentences=SENTENCES_COUNT, language=LANGUAGE):
